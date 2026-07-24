@@ -1,4 +1,5 @@
-export const PCM16_200MS_CHUNK_BYTES = 4_800 * 2;
+export const PCM16_INPUT_SAMPLE_RATE = 16_000;
+export const PCM16_100MS_CHUNK_BYTES = Math.round(PCM16_INPUT_SAMPLE_RATE * 0.1) * 2;
 
 export class Pcm16Chunker {
   constructor(chunkBytes) {

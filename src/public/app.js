@@ -1,11 +1,12 @@
 import { buildAudioMixState } from "/audio-mix.js";
+import {
+  PCM16_100MS_CHUNK_BYTES,
+  PCM16_INPUT_SAMPLE_RATE,
+  Pcm16Chunker,
+} from "/audio-chunks.js";
 import { buildDisplayMediaOptions } from "/capture-options.js";
 
-const TRANSLATION_CALL_URL =
-  "https://api.openai.com/v1/realtime/translations/calls";
-
-const OUTPUT_TRANSCRIPT_EVENTS = new Set(["session.output_transcript.delta"]);
-const INPUT_TRANSCRIPT_EVENTS = new Set(["session.input_transcript.delta"]);
+const OUTPUT_SAMPLE_RATE = 24_000;
 
 const targetLanguage = document.querySelector("#targetLanguage");
 const startButton = document.querySelector("#startButton");
@@ -28,16 +29,21 @@ const outputAudioDeltas = document.querySelector("#outputAudioDeltas");
 const transcriptDeltas = document.querySelector("#transcriptDeltas");
 const lastEventType = document.querySelector("#lastEventType");
 
-let peerConnection = null;
-let dataChannel = null;
 let captureStream = null;
 let meterContext = null;
 let meterSource = null;
 let meterAnalyser = null;
 let meterTimer = null;
 let sourceAudio = null;
-let translatedAudio = null;
+let captureContext = null;
+let captureSource = null;
+let captureNode = null;
+let chunker = null;
+let websocket = null;
+let playback = null;
 let diagnostics = createEmptyDiagnostics();
+let setupComplete = false;
+let inputChunksSent = 0;
 
 applyAudioMix();
 
@@ -56,11 +62,11 @@ startButton.addEventListener("click", async () => {
     startSourceAudio(captureStream);
     startInputMeter(captureStream);
 
-    setStatus("Creating Realtime Translation session", "idle");
+    setStatus("Creating Gemini Live Translate session", "idle");
     const session = await createSession(targetLanguage.value);
 
-    setStatus("Connecting WebRTC", "idle");
-    await connectRealtimeTranslation(session, captureStream);
+    setStatus("Connecting WebSocket", "idle");
+    await connectGeminiLiveTranslate(session, captureStream);
 
     setStatus("Translating tab audio", "live");
   } catch (error) {
@@ -88,89 +94,203 @@ async function createSession(language) {
   return body;
 }
 
-async function connectRealtimeTranslation(session, stream) {
-  peerConnection = new RTCPeerConnection();
-  dataChannel = peerConnection.createDataChannel("oai-events");
+async function connectGeminiLiveTranslate(session, stream) {
+  if (!session.ws_url || !session.setup) {
+    throw new Error("Session response is missing ws_url or setup.");
+  }
 
-  translatedAudio = new Audio();
-  translatedAudio.autoplay = true;
-  translatedAudio.playsInline = true;
+  playback = new Pcm24Player();
+  await playback.init();
   applyAudioMix();
 
-  peerConnection.onconnectionstatechange = () => {
-    diagnostics.connectionState = peerConnection?.connectionState ?? "closed";
+  chunker = new Pcm16Chunker(PCM16_100MS_CHUNK_BYTES);
+  setupComplete = false;
+
+  await new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (error) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    };
+
+    websocket = new WebSocket(session.ws_url);
+    diagnostics.connectionState = "connecting";
     chunksSent.textContent = diagnostics.connectionState;
-    logEvent("webrtc.connection", diagnostics.connectionState);
     updateDiagnostics();
-  };
 
-  peerConnection.oniceconnectionstatechange = () => {
-    diagnostics.iceConnectionState =
-      peerConnection?.iceConnectionState ?? "closed";
-    queueProgress.value =
-      diagnostics.iceConnectionState === "connected" ||
-      diagnostics.iceConnectionState === "completed"
-        ? 1
-        : 0;
-    updateDiagnostics();
-  };
+    const timeout = window.setTimeout(() => {
+      finish(new Error("Gemini Live session setup timed out."));
+    }, 15_000);
 
-  peerConnection.ontrack = ({ streams }) => {
-    diagnostics.remoteAudioTracks += 1;
-    outputAudioDeltas.textContent = String(diagnostics.remoteAudioTracks);
-    translatedAudio.srcObject = streams[0];
-    applyAudioMix();
-    void translatedAudio.play().catch((error) => {
-      logEvent("audio.play", error.message);
+    websocket.addEventListener("open", () => {
+      diagnostics.connectionState = "open";
+      diagnostics.dataChannelState = "open";
+      chunksSent.textContent = diagnostics.connectionState;
+      activeInputFrames.textContent = diagnostics.dataChannelState;
+      queueProgress.value = 0.5;
+      logEvent("websocket.open", "ok");
+      websocket.send(JSON.stringify(session.setup));
+      logEvent("setup.sent", session.targetLanguage);
+      updateDiagnostics();
     });
-    logEvent("remote.audio", "track received");
-    updateDiagnostics();
-  };
 
-  dataChannel.onopen = () => {
-    diagnostics.dataChannelState = dataChannel?.readyState ?? "open";
-    activeInputFrames.textContent = diagnostics.dataChannelState;
-    logEvent("datachannel.open", "ok");
-    updateDiagnostics();
-  };
-  dataChannel.onclose = () => {
-    diagnostics.dataChannelState = "closed";
-    activeInputFrames.textContent = "closed";
-    logEvent("datachannel.close", "closed");
-    updateDiagnostics();
-  };
-  dataChannel.onerror = () => {
-    logEvent("datachannel.error", "error");
-  };
-  dataChannel.onmessage = handleRealtimeEvent;
+    websocket.addEventListener("error", () => {
+      window.clearTimeout(timeout);
+      finish(new Error("Gemini Live WebSocket connection failed."));
+    });
 
-  for (const track of stream.getAudioTracks()) {
-    peerConnection.addTrack(track, stream);
+    websocket.addEventListener("close", (event) => {
+      diagnostics.connectionState = "closed";
+      diagnostics.dataChannelState = "closed";
+      chunksSent.textContent = "closed";
+      activeInputFrames.textContent = "closed";
+      queueProgress.value = 0;
+      logEvent("websocket.close", `${event.code} ${event.reason || ""}`.trim());
+      updateDiagnostics();
+      if (!setupComplete) {
+        window.clearTimeout(timeout);
+        finish(new Error("Gemini Live WebSocket closed before setup completed."));
+      }
+    });
+
+    websocket.addEventListener("message", async (event) => {
+      let message;
+      try {
+        message = JSON.parse(await messageToText(event.data));
+      } catch {
+        logEvent("message", "Received non-JSON WebSocket message.");
+        return;
+      }
+
+      handleGeminiMessage(message);
+
+      if (message.setupComplete && !setupComplete) {
+        setupComplete = true;
+        window.clearTimeout(timeout);
+        try {
+          await startPcmCapture(stream);
+          queueProgress.value = 1;
+          diagnostics.iceConnectionState = "connected";
+          finish();
+        } catch (error) {
+          finish(error);
+        }
+      }
+    });
+  });
+}
+
+function handleGeminiMessage(message) {
+  if (message.error) {
+    diagnostics.lastEventType = "error";
+    lastEventType.textContent = "error";
+    logEvent("error", JSON.stringify(message.error));
+    updateDiagnostics();
+    return;
   }
 
-  const offer = await peerConnection.createOffer();
-  await peerConnection.setLocalDescription(offer);
-
-  const sdpResponse = await fetch(TRANSLATION_CALL_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${session.client_secret}`,
-      "Content-Type": "application/sdp",
-    },
-    body: offer.sdp,
-  });
-
-  const answerSdp = await sdpResponse.text();
-  if (!sdpResponse.ok) {
-    throw new Error(answerSdp);
+  if (message.setupComplete) {
+    diagnostics.lastEventType = "setupComplete";
+    lastEventType.textContent = "setupComplete";
+    logEvent("setupComplete", "ok");
+    updateDiagnostics();
+    return;
   }
 
-  await peerConnection.setRemoteDescription({
-    type: "answer",
-    sdp: answerSdp,
+  const content = message.serverContent;
+  if (!content) {
+    diagnostics.lastEventType = Object.keys(message)[0] ?? "unknown";
+    lastEventType.textContent = diagnostics.lastEventType;
+    updateDiagnostics();
+    return;
+  }
+
+  if (content.interrupted) {
+    diagnostics.lastEventType = "interrupted";
+    lastEventType.textContent = "interrupted";
+    playback?.interrupt();
+    logEvent("interrupted", "ok");
+    updateDiagnostics();
+  }
+
+  if (content.inputTranscription?.text) {
+    diagnostics.lastEventType = "inputTranscription";
+    lastEventType.textContent = "inputTranscription";
+    logEvent("input", content.inputTranscription.text);
+  }
+
+  if (content.outputTranscription?.text) {
+    diagnostics.lastEventType = "outputTranscription";
+    lastEventType.textContent = "outputTranscription";
+    diagnostics.transcriptDeltas += 1;
+    appendTranslatedText(content.outputTranscription.text);
+  }
+
+  if (content.modelTurn?.parts) {
+    for (const part of content.modelTurn.parts) {
+      if (part.inlineData?.data) {
+        diagnostics.lastEventType = "outputAudio";
+        lastEventType.textContent = "outputAudio";
+        diagnostics.remoteAudioTracks += 1;
+        outputAudioDeltas.textContent = String(diagnostics.remoteAudioTracks);
+        void playback?.playBase64(part.inlineData.data).catch((error) => {
+          logEvent("audio.play", error.message);
+        });
+      }
+    }
+  }
+
+  if (content.turnComplete) {
+    diagnostics.lastEventType = "turnComplete";
+    lastEventType.textContent = "turnComplete";
+    logEvent("turnComplete", "ok");
+  }
+
+  updateDiagnostics();
+}
+
+async function startPcmCapture(stream) {
+  captureContext = new AudioContext();
+  await captureContext.audioWorklet.addModule("/pcm16-capture.worklet.js");
+  captureSource = captureContext.createMediaStreamSource(stream);
+  captureNode = new AudioWorkletNode(captureContext, "pcm16-capture", {
+    processorOptions: { targetSampleRate: PCM16_INPUT_SAMPLE_RATE },
   });
 
-  logEvent("webrtc.offer", `connected for ${session.targetLanguage}`);
+  captureNode.port.onmessage = ({ data }) => {
+    if (data?.type !== "pcm16" || !data.buffer) {
+      return;
+    }
+    if (!websocket || websocket.readyState !== WebSocket.OPEN || !setupComplete) {
+      return;
+    }
+
+    const chunks = chunker.push(data.buffer);
+    for (const chunk of chunks) {
+      websocket.send(
+        JSON.stringify({
+          realtimeInput: {
+            audio: {
+              data: bytesToBase64(chunk),
+              mimeType: `audio/pcm;rate=${PCM16_INPUT_SAMPLE_RATE}`,
+            },
+          },
+        }),
+      );
+      inputChunksSent += 1;
+      activeInputFrames.textContent = String(inputChunksSent);
+    }
+  };
+
+  captureSource.connect(captureNode);
+  logEvent("capture.pcm", `${PCM16_INPUT_SAMPLE_RATE} Hz`);
 }
 
 async function captureTabAudio() {
@@ -258,49 +378,9 @@ function applyAudioMix() {
   if (sourceAudio) {
     sourceAudio.volume = mix.originalVolume;
   }
-  if (translatedAudio) {
-    translatedAudio.volume = mix.translatedVolume;
+  if (playback) {
+    playback.setVolume(mix.translatedVolume);
   }
-}
-
-function handleRealtimeEvent(message) {
-  let event;
-  try {
-    event = JSON.parse(message.data);
-  } catch {
-    logEvent("message", "Received non-JSON data channel message.");
-    return;
-  }
-
-  diagnostics.lastEventType = event.type;
-  lastEventType.textContent = event.type;
-
-  if (event.type === "error") {
-    logEvent("error", JSON.stringify(event.error ?? event));
-    return;
-  }
-
-  if (OUTPUT_TRANSCRIPT_EVENTS.has(event.type) && typeof event.delta === "string") {
-    diagnostics.transcriptDeltas += 1;
-    appendTranslatedText(event.delta);
-    updateDiagnostics();
-    return;
-  }
-
-  if (INPUT_TRANSCRIPT_EVENTS.has(event.type) && typeof event.delta === "string") {
-    logEvent("input", event.delta);
-    return;
-  }
-
-  if (
-    event.type === "session.created" ||
-    event.type === "session.updated" ||
-    event.type === "output_audio_buffer.started"
-  ) {
-    logEvent(event.type, "ok");
-  }
-
-  updateDiagnostics();
 }
 
 async function stop(message, state = "idle") {
@@ -319,11 +399,23 @@ async function stop(message, state = "idle") {
   }
   meterContext = null;
 
-  dataChannel?.close();
-  dataChannel = null;
+  captureNode?.port && (captureNode.port.onmessage = null);
+  captureSource?.disconnect();
+  captureNode?.disconnect();
+  captureSource = null;
+  captureNode = null;
+  if (captureContext?.state !== "closed") {
+    await captureContext?.close();
+  }
+  captureContext = null;
+  chunker?.reset();
+  chunker = null;
 
-  peerConnection?.close();
-  peerConnection = null;
+  if (websocket) {
+    websocket.close();
+    websocket = null;
+  }
+  setupComplete = false;
 
   if (sourceAudio) {
     sourceAudio.pause();
@@ -334,11 +426,8 @@ async function stop(message, state = "idle") {
   captureStream?.getTracks().forEach((track) => track.stop());
   captureStream = null;
 
-  if (translatedAudio) {
-    translatedAudio.pause();
-    translatedAudio.srcObject = null;
-  }
-  translatedAudio = null;
+  playback?.destroy();
+  playback = null;
 
   inputMeter.value = 0;
   queueProgress.value = 0;
@@ -382,6 +471,7 @@ function createEmptyDiagnostics() {
 
 function resetDiagnostics() {
   diagnostics = createEmptyDiagnostics();
+  inputChunksSent = 0;
   captureState.textContent = "Starting";
   eventLog.textContent = "";
   updateDiagnostics();
@@ -389,7 +479,11 @@ function resetDiagnostics() {
 
 function updateDiagnostics() {
   chunksSent.textContent = diagnostics.connectionState;
-  activeInputFrames.textContent = diagnostics.dataChannelState;
+  if (!setupComplete || inputChunksSent === 0) {
+    activeInputFrames.textContent = diagnostics.dataChannelState;
+  } else {
+    activeInputFrames.textContent = String(inputChunksSent);
+  }
   peakInputLevel.textContent = diagnostics.peakInputLevel.toFixed(3);
   outputAudioDeltas.textContent = String(diagnostics.remoteAudioTracks);
   transcriptDeltas.textContent = String(diagnostics.transcriptDeltas);
@@ -402,4 +496,121 @@ function logEvent(type, detail) {
   entry.textContent = `[${new Date().toLocaleTimeString()}] ${type}: ${detail}`;
   eventLog.append(entry);
   eventLog.scrollTop = eventLog.scrollHeight;
+}
+
+async function messageToText(data) {
+  if (typeof data === "string") {
+    return data;
+  }
+  if (data instanceof Blob) {
+    return data.text();
+  }
+  if (data instanceof ArrayBuffer) {
+    return new TextDecoder().decode(data);
+  }
+  if (ArrayBuffer.isView(data)) {
+    return new TextDecoder().decode(data);
+  }
+  return String(data);
+}
+
+function bytesToBase64(bytes) {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    const slice = bytes.subarray(offset, offset + chunkSize);
+    binary += String.fromCharCode(...slice);
+  }
+  return btoa(binary);
+}
+
+class Pcm24Player {
+  constructor() {
+    this.audioContext = null;
+    this.gainNode = null;
+    this.nextTime = 0;
+    this.sources = new Set();
+    this.volume = 1;
+  }
+
+  async init() {
+    this.audioContext = new AudioContext({ sampleRate: OUTPUT_SAMPLE_RATE });
+    if (this.audioContext.state === "suspended") {
+      await this.audioContext.resume();
+    }
+    this.gainNode = this.audioContext.createGain();
+    this.gainNode.gain.value = this.volume;
+    this.gainNode.connect(this.audioContext.destination);
+    this.nextTime = this.audioContext.currentTime;
+  }
+
+  setVolume(volume) {
+    this.volume = Math.max(0, Math.min(1, volume));
+    if (this.gainNode) {
+      this.gainNode.gain.value = this.volume;
+    }
+  }
+
+  async playBase64(base64Audio) {
+    if (!this.audioContext || !this.gainNode) {
+      await this.init();
+    }
+    if (this.audioContext.state === "suspended") {
+      await this.audioContext.resume();
+    }
+
+    const bytes = base64ToUint8Array(base64Audio);
+    const samples = new Int16Array(bytes.buffer, bytes.byteOffset, bytes.byteLength / 2);
+    const float32 = new Float32Array(samples.length);
+    for (let i = 0; i < samples.length; i += 1) {
+      float32[i] = samples[i] / 32768;
+    }
+
+    const buffer = this.audioContext.createBuffer(1, float32.length, OUTPUT_SAMPLE_RATE);
+    buffer.copyToChannel(float32, 0);
+
+    const source = this.audioContext.createBufferSource();
+    source.buffer = buffer;
+    source.connect(this.gainNode);
+    this.sources.add(source);
+    source.onended = () => {
+      this.sources.delete(source);
+    };
+
+    const startAt = Math.max(this.audioContext.currentTime, this.nextTime);
+    source.start(startAt);
+    this.nextTime = startAt + buffer.duration;
+  }
+
+  interrupt() {
+    for (const source of this.sources) {
+      try {
+        source.stop();
+      } catch {
+        // Already stopped.
+      }
+    }
+    this.sources.clear();
+    if (this.audioContext) {
+      this.nextTime = this.audioContext.currentTime;
+    }
+  }
+
+  destroy() {
+    this.interrupt();
+    if (this.audioContext?.state !== "closed") {
+      void this.audioContext?.close();
+    }
+    this.audioContext = null;
+    this.gainNode = null;
+  }
+}
+
+function base64ToUint8Array(base64Audio) {
+  const binary = atob(base64Audio);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
 }

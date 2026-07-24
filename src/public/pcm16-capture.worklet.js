@@ -1,7 +1,7 @@
 class Pcm16CaptureProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super();
-    this.targetSampleRate = options.processorOptions?.targetSampleRate ?? 24000;
+    this.targetSampleRate = options.processorOptions?.targetSampleRate ?? 16000;
   }
 
   process(inputs) {

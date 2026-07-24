@@ -7,9 +7,9 @@
     "node": ">=20"
   },
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "node --watch src/server.js",
+    "start": "node --use-env-proxy src/server.js",
+    "dev": "node --watch --use-env-proxy src/server.js",
     "test": "node --test test/*.test.js",
-    "smoke": "node scripts/smoke-realtime.mjs"
+    "smoke": "node --use-env-proxy scripts/smoke-realtime.mjs"
   }
 }

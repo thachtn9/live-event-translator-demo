@@ -5,12 +5,14 @@ import path from "node:path";
 
 import {
   DEFAULT_TRANSLATION_MODEL,
-  createClientSecret,
+  createEphemeralToken,
 } from "../src/session.js";
 import { loadEnvFiles } from "../src/server.js";
-import { PCM16_200MS_CHUNK_BYTES } from "../src/public/audio-chunks.js";
+import {
+  PCM16_100MS_CHUNK_BYTES,
+  PCM16_INPUT_SAMPLE_RATE,
+} from "../src/public/audio-chunks.js";
 
-const TRANSLATION_WS_URL = "wss://api.openai.com/v1/realtime/translations";
 const TARGET_LANGUAGE = process.env.SMOKE_TARGET_LANGUAGE ?? "es";
 const PHRASE =
   process.env.SMOKE_PHRASE ??
@@ -18,17 +20,17 @@ const PHRASE =
 
 loadEnvFiles(process.env, process.cwd());
 
-if (!process.env.OPENAI_API_KEY) {
-  throw new Error("OPENAI_API_KEY is not configured.");
+if (!process.env.GEMINI_API_KEY) {
+  throw new Error("GEMINI_API_KEY is not configured.");
 }
 
-const session = await createClientSecret({
-  apiKey: process.env.OPENAI_API_KEY,
+const session = await createEphemeralToken({
+  apiKey: process.env.GEMINI_API_KEY,
   targetLanguage: TARGET_LANGUAGE,
-  model: process.env.OPENAI_TRANSLATION_MODEL ?? DEFAULT_TRANSLATION_MODEL,
+  model: process.env.GEMINI_TRANSLATION_MODEL ?? DEFAULT_TRANSLATION_MODEL,
 });
 
-const audio = createSpeechPcm16(PHRASE) ?? Buffer.alloc(24_000 * 2);
+const audio = createSpeechPcm16(PHRASE) ?? Buffer.alloc(PCM16_INPUT_SAMPLE_RATE * 2);
 const usedSpeech = audio.some((byte) => byte !== 0);
 const result = await runWebSocketSmoke({ session, audio, requireOutput: usedSpeech });
 
@@ -38,8 +40,8 @@ console.log(
       ok: true,
       mode: usedSpeech ? "speech" : "silence",
       targetLanguage: session.targetLanguage,
-      sessionCreated: result.sessionCreated,
-      outputAudioDeltas: result.outputAudioDeltas,
+      setupComplete: result.setupComplete,
+      outputAudioChunks: result.outputAudioChunks,
       outputTranscriptPreview: result.outputTranscript.slice(0, 160),
     },
     null,
@@ -49,19 +51,11 @@ console.log(
 
 async function runWebSocketSmoke({ session, audio, requireOutput }) {
   return new Promise((resolve, reject) => {
-    const url = new URL(TRANSLATION_WS_URL);
-    url.searchParams.set("model", session.model);
-
-    const ws = new WebSocket(url, [
-      `openai-insecure-api-key.${session.client_secret}`,
-      "realtime",
-    ]);
+    const ws = new WebSocket(session.ws_url);
 
     const state = {
-      sessionCreated: false,
-      sessionUpdateSent: false,
-      sessionUpdated: false,
-      outputAudioDeltas: 0,
+      setupComplete: false,
+      outputAudioChunks: 0,
       outputTranscript: "",
       sending: false,
       sent: false,
@@ -83,26 +77,23 @@ async function runWebSocketSmoke({ session, audio, requireOutput }) {
     };
 
     const timeout = setTimeout(() => {
-      if (!state.sessionCreated) {
-        finish(new Error("Realtime session was not created before timeout."));
+      if (!state.setupComplete) {
+        finish(new Error("Gemini Live session was not set up before timeout."));
         return;
       }
-      if (requireOutput && state.outputAudioDeltas === 0 && !state.outputTranscript) {
-        finish(new Error("Realtime session produced no translated output before timeout."));
+      if (requireOutput && state.outputAudioChunks === 0 && !state.outputTranscript) {
+        finish(new Error("Gemini Live session produced no translated output before timeout."));
         return;
       }
       finish();
     }, requireOutput ? 25_000 : 5_000);
 
     ws.addEventListener("error", () => {
-      finish(new Error("Realtime WebSocket error."));
+      finish(new Error("Gemini Live WebSocket error."));
     });
 
     ws.addEventListener("open", () => {
-      if (session.session_update) {
-        ws.send(JSON.stringify(session.session_update));
-        state.sessionUpdateSent = true;
-      }
+      ws.send(JSON.stringify(session.setup));
     });
 
     ws.addEventListener("message", async (message) => {
@@ -114,43 +105,33 @@ async function runWebSocketSmoke({ session, audio, requireOutput }) {
         return;
       }
 
-      if (event.type === "error") {
-        finish(new Error(JSON.stringify(event.error ?? event)));
+      if (event.error) {
+        finish(new Error(JSON.stringify(event.error)));
         return;
       }
 
-      if (event.type === "session.created") {
-        state.sessionCreated = true;
-        if (!session.session_update) {
-          void sendAudioAndMaybeFinish(ws, audio, state, requireOutput, finish);
-        }
-      }
-
-      if (event.type === "session.updated") {
-        state.sessionUpdated = true;
+      if (event.setupComplete) {
+        state.setupComplete = true;
         void sendAudioAndMaybeFinish(ws, audio, state, requireOutput, finish);
       }
 
-      if (
-        (event.type === "session.output_audio.delta" ||
-          event.type === "response.output_audio.delta") &&
-        typeof event.delta === "string"
-      ) {
-        state.outputAudioDeltas += 1;
+      const content = event.serverContent;
+      if (content?.outputTranscription?.text) {
+        state.outputTranscript += content.outputTranscription.text;
+      }
+
+      if (content?.modelTurn?.parts) {
+        for (const part of content.modelTurn.parts) {
+          if (part.inlineData?.data) {
+            state.outputAudioChunks += 1;
+          }
+        }
       }
 
       if (
-        (event.type === "session.output_transcript.delta" ||
-          event.type === "response.output_audio_transcript.delta") &&
-        typeof event.delta === "string"
-      ) {
-        state.outputTranscript += event.delta;
-      }
-
-      if (
-        state.sessionCreated &&
+        state.setupComplete &&
         state.sent &&
-        (!requireOutput || state.outputAudioDeltas > 0 || state.outputTranscript)
+        (!requireOutput || state.outputAudioChunks > 0 || state.outputTranscript)
       ) {
         finish();
       }
@@ -166,7 +147,7 @@ async function sendAudioAndMaybeFinish(ws, audio, state, requireOutput, finish) 
   try {
     await sendAudio(ws, audio);
     state.sent = true;
-    if (!requireOutput || state.outputAudioDeltas > 0 || state.outputTranscript) {
+    if (!requireOutput || state.outputAudioChunks > 0 || state.outputTranscript) {
       finish();
     }
   } catch (error) {
@@ -175,13 +156,17 @@ async function sendAudioAndMaybeFinish(ws, audio, state, requireOutput, finish) 
 }
 
 async function sendAudio(ws, audio) {
-  const chunkBytes = PCM16_200MS_CHUNK_BYTES;
+  const chunkBytes = PCM16_100MS_CHUNK_BYTES;
   for (let offset = 0; offset < audio.length; offset += chunkBytes) {
     const chunk = audio.subarray(offset, offset + chunkBytes);
     ws.send(
       JSON.stringify({
-        type: "session.input_audio_buffer.append",
-        audio: chunk.toString("base64"),
+        realtimeInput: {
+          audio: {
+            data: chunk.toString("base64"),
+            mimeType: `audio/pcm;rate=${PCM16_INPUT_SAMPLE_RATE}`,
+          },
+        },
       }),
     );
     await delay(100);
@@ -191,8 +176,12 @@ async function sendAudio(ws, audio) {
   for (let i = 0; i < 12; i += 1) {
     ws.send(
       JSON.stringify({
-        type: "session.input_audio_buffer.append",
-        audio: silence.toString("base64"),
+        realtimeInput: {
+          audio: {
+            data: silence.toString("base64"),
+            mimeType: `audio/pcm;rate=${PCM16_INPUT_SAMPLE_RATE}`,
+          },
+        },
       }),
     );
     await delay(100);
@@ -218,7 +207,7 @@ function createSpeechPcm16(phrase) {
 
     const convert = spawnSync(
       "/usr/bin/afconvert",
-      ["-f", "WAVE", "-d", "LEI16@24000", aiffPath, wavPath],
+      ["-f", "WAVE", "-d", `LEI16@${PCM16_INPUT_SAMPLE_RATE}`, aiffPath, wavPath],
       { stdio: "ignore" },
     );
     if (convert.status !== 0) {

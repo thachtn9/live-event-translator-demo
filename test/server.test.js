@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { once } from "node:events";
 import test from "node:test";
 
+import { DEFAULT_TRANSLATION_MODEL } from "../src/session.js";
 import { buildServer, getListenHost } from "../src/server.js";
 
 async function withServer(options, run) {
@@ -19,7 +20,7 @@ async function withServer(options, run) {
 }
 
 test("serves the browser app from the root route", async () => {
-  await withServer({ env: { OPENAI_API_KEY: "sk-test" } }, async (baseUrl) => {
+  await withServer({ env: { GEMINI_API_KEY: "test-key" } }, async (baseUrl) => {
     const response = await fetch(`${baseUrl}/`);
     const body = await response.text();
 
@@ -40,7 +41,7 @@ test("uses localhost by default and allows the listen host to be configured", ()
 });
 
 test("serves the source speech WAV as audio", async () => {
-  await withServer({ env: { OPENAI_API_KEY: "sk-test" } }, async (baseUrl) => {
+  await withServer({ env: { GEMINI_API_KEY: "test-key" } }, async (baseUrl) => {
     const response = await fetch(`${baseUrl}/source-speech.wav`, { method: "HEAD" });
 
     assert.equal(response.status, 200);
@@ -48,23 +49,24 @@ test("serves the source speech WAV as audio", async () => {
   });
 });
 
-test("serves browser app code that connects to translation over WebRTC", async () => {
-  await withServer({ env: { OPENAI_API_KEY: "sk-test" } }, async (baseUrl) => {
+test("serves browser app code that connects to translation over WebSocket", async () => {
+  await withServer({ env: { GEMINI_API_KEY: "test-key" } }, async (baseUrl) => {
     const response = await fetch(`${baseUrl}/app.js`);
     const body = await response.text();
 
     assert.equal(response.status, 200);
-    assert.match(body, /RTCPeerConnection/);
-    assert.match(body, /realtime\/translations\/calls/);
-    assert.doesNotMatch(body, /new WebSocket/);
+    assert.match(body, /new WebSocket/);
+    assert.match(body, /BidiGenerateContentConstrained|ws_url|ephemeral_token/);
+    assert.doesNotMatch(body, /RTCPeerConnection/);
+    assert.doesNotMatch(body, /realtime\/translations\/calls/);
   });
 });
 
-test("POST /session validates target language before calling OpenAI", async () => {
+test("POST /session validates target language before calling Gemini", async () => {
   let calls = 0;
   await withServer(
     {
-      env: { OPENAI_API_KEY: "sk-test" },
+      env: { GEMINI_API_KEY: "test-key" },
       fetchImpl: async () => {
         calls += 1;
         throw new Error("fetch should not be called");
@@ -85,17 +87,15 @@ test("POST /session validates target language before calling OpenAI", async () =
   );
 });
 
-test("POST /session returns a browser-safe client secret response", async () => {
+test("POST /session returns a browser-safe Gemini ephemeral token response", async () => {
   const requests = [];
   await withServer(
     {
-      env: { OPENAI_API_KEY: "sk-test" },
+      env: { GEMINI_API_KEY: "test-key" },
       fetchImpl: async (url, init) => {
         requests.push({ url, init });
         return Response.json({
-          value: "ek_test",
-          expires_at: 123,
-          session: { id: "sess_test" },
+          name: "auth_tokens/ek_test",
         });
       },
     },
@@ -108,33 +108,34 @@ test("POST /session returns a browser-safe client secret response", async () => 
       const body = await response.json();
 
       assert.equal(response.status, 200);
-      assert.deepEqual(body, {
-        client_secret: "ek_test",
-        expires_at: 123,
-        model: "gpt-realtime-translate",
-        session: { id: "sess_test" },
-        session_update: {
-          type: "session.update",
-          session: {
-            audio: {
-              input: {
-                transcription: { model: "gpt-realtime-whisper" },
-                noise_reduction: null,
-              },
-              output: { language: "es" },
-            },
-          },
-        },
-        targetLanguage: "es",
-      });
+      assert.equal(body.ephemeral_token, "auth_tokens/ek_test");
+      assert.equal(body.model, DEFAULT_TRANSLATION_MODEL);
+      assert.equal(body.targetLanguage, "es");
+      assert.match(body.ws_url, /BidiGenerateContentConstrained/);
+      assert.match(body.ws_url, /access_token=/);
+      assert.equal(body.setup.setup.generationConfig.translationConfig.targetLanguageCode, "es");
       assert.equal(requests.length, 1);
+      assert.equal(requests[0].init.headers["x-goog-api-key"], "test-key");
       const requestBody = JSON.parse(requests[0].init.body);
-      assert.equal(requestBody.session.model, "gpt-realtime-translate");
-      assert.equal(requestBody.session.audio.output.language, "es");
-      assert.deepEqual(requestBody.session.audio.input, {
-        transcription: { model: "gpt-realtime-whisper" },
-        noise_reduction: null,
-      });
+      assert.equal(
+        requestBody.bidiGenerateContentSetup.generationConfig.translationConfig
+          .targetLanguageCode,
+        "es",
+      );
     },
   );
+});
+
+test("POST /session reports missing GEMINI_API_KEY", async () => {
+  await withServer({ env: {} }, async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/session`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetLanguage: "vi" }),
+    });
+    const body = await response.json();
+
+    assert.equal(response.status, 500);
+    assert.match(body.error, /GEMINI_API_KEY/);
+  });
 });

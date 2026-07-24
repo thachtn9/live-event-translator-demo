@@ -2,18 +2,21 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  DEFAULT_INPUT_TRANSCRIPTION_MODEL,
   DEFAULT_TRANSLATION_MODEL,
-  TRANSLATION_CLIENT_SECRET_URL,
-  buildClientSecretRequest,
-  buildSessionUpdate,
+  AUTH_TOKENS_URL,
+  LIVE_WS_CONSTRAINED_BASE,
+  buildEphemeralTokenRequest,
+  buildLiveSetup,
+  buildLiveWsUrl,
   normalizeTargetLanguage,
+  toGeminiLanguageCode,
 } from "../src/session.js";
 
 test("normalizeTargetLanguage accepts compact BCP-47 style tags", () => {
   assert.equal(normalizeTargetLanguage(" ES "), "es");
   assert.equal(normalizeTargetLanguage("PT"), "pt");
   assert.equal(normalizeTargetLanguage("zh"), "zh");
+  assert.equal(normalizeTargetLanguage("vi"), "vi");
 });
 
 test("normalizeTargetLanguage rejects missing or unsafe values", () => {
@@ -24,38 +27,67 @@ test("normalizeTargetLanguage rejects missing or unsafe values", () => {
   assert.throws(() => normalizeTargetLanguage("../es"), /language code/i);
 });
 
-test("buildClientSecretRequest builds the current translation payload", () => {
-  const request = buildClientSecretRequest({
+test("toGeminiLanguageCode maps UI codes to Gemini Live Translate codes", () => {
+  assert.equal(toGeminiLanguageCode("zh"), "zh-Hans");
+  assert.equal(toGeminiLanguageCode("pt"), "pt-BR");
+  assert.equal(toGeminiLanguageCode("vi"), "vi");
+  assert.equal(toGeminiLanguageCode(" ES "), "es");
+});
+
+test("buildLiveSetup builds a Gemini Live Translate setup message", () => {
+  assert.deepEqual(buildLiveSetup({ targetLanguage: " VI " }), {
+    setup: {
+      model: `models/${DEFAULT_TRANSLATION_MODEL}`,
+      generationConfig: {
+        responseModalities: ["AUDIO"],
+        translationConfig: {
+          targetLanguageCode: "vi",
+          echoTargetLanguage: true,
+        },
+      },
+      inputAudioTranscription: {},
+      outputAudioTranscription: {},
+    },
+  });
+});
+
+test("buildEphemeralTokenRequest builds a constrained auth token payload", () => {
+  const now = Date.parse("2026-07-24T10:00:00.000Z");
+  const request = buildEphemeralTokenRequest({
     apiKey: "test-api-key",
     targetLanguage: " ES ",
+    now,
   });
 
-  assert.equal(request.url, TRANSLATION_CLIENT_SECRET_URL);
+  assert.equal(request.url, AUTH_TOKENS_URL);
   assert.equal(request.init.method, "POST");
-  assert.equal(request.init.headers.Authorization, "Bearer test-api-key");
+  assert.equal(request.init.headers["x-goog-api-key"], "test-api-key");
   assert.equal(request.init.headers["Content-Type"], "application/json");
 
   const body = JSON.parse(request.init.body);
-  assert.equal(body.session.model, DEFAULT_TRANSLATION_MODEL);
-  assert.equal(body.session.audio.input.transcription.model, DEFAULT_INPUT_TRANSCRIPTION_MODEL);
-  assert.equal(body.session.audio.input.noise_reduction, null);
-  assert.equal(body.session.audio.output.language, "es");
-  assert.equal(Object.hasOwn(body, "model"), false);
-  assert.equal(Object.hasOwn(body, "max_output_tokens"), false);
-  assert.equal(Object.hasOwn(body.session, "max_output_tokens"), false);
-});
-
-test("buildSessionUpdate applies input transcription after session.created", () => {
-  assert.deepEqual(buildSessionUpdate({ targetLanguage: " ES " }), {
-    type: "session.update",
-    session: {
-      audio: {
-        input: {
-          transcription: { model: DEFAULT_INPUT_TRANSCRIPTION_MODEL },
-          noise_reduction: null,
-        },
-        output: { language: "es" },
+  assert.equal(body.uses, 1);
+  assert.equal(body.expireTime, "2026-07-24T10:30:00.000Z");
+  assert.equal(body.newSessionExpireTime, "2026-07-24T10:01:00.000Z");
+  assert.deepEqual(body.bidiGenerateContentSetup, {
+    model: `models/${DEFAULT_TRANSLATION_MODEL}`,
+    generationConfig: {
+      responseModalities: ["AUDIO"],
+      translationConfig: {
+        targetLanguageCode: "es",
+        echoTargetLanguage: true,
       },
     },
+    inputAudioTranscription: {},
+    outputAudioTranscription: {},
   });
+  assert.equal(request.language, "es");
+  assert.equal(request.model, DEFAULT_TRANSLATION_MODEL);
+});
+
+test("buildLiveWsUrl uses the constrained v1alpha endpoint", () => {
+  const url = buildLiveWsUrl("auth_tokens/abc123");
+  assert.equal(
+    url,
+    `${LIVE_WS_CONSTRAINED_BASE}?access_token=${encodeURIComponent("auth_tokens/abc123")}`,
+  );
 });

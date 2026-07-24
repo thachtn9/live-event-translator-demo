@@ -1,10 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { PCM16_200MS_CHUNK_BYTES, Pcm16Chunker } from "../src/public/audio-chunks.js";
+import {
+  PCM16_100MS_CHUNK_BYTES,
+  PCM16_INPUT_SAMPLE_RATE,
+  Pcm16Chunker,
+} from "../src/public/audio-chunks.js";
 
-test("PCM16_200MS_CHUNK_BYTES is 4,800 16-bit samples", () => {
-  assert.equal(PCM16_200MS_CHUNK_BYTES, 4_800 * 2);
+test("PCM16_100MS_CHUNK_BYTES is 1,600 16-bit samples at 16 kHz", () => {
+  assert.equal(PCM16_INPUT_SAMPLE_RATE, 16_000);
+  assert.equal(PCM16_100MS_CHUNK_BYTES, 1_600 * 2);
 });
 
 test("Pcm16Chunker batches small buffers into fixed-size chunks", () => {

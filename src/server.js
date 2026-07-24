@@ -3,7 +3,7 @@ import { createReadStream, existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { createClientSecret, normalizeTargetLanguage } from "./session.js";
+import { createEphemeralToken, normalizeTargetLanguage } from "./session.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -82,26 +82,31 @@ async function handleSessionRequest(request, response, { env, fetchImpl }) {
     return;
   }
 
-  if (!env.OPENAI_API_KEY) {
-    sendJson(response, 500, { error: "OPENAI_API_KEY is not configured." });
+  if (!env.GEMINI_API_KEY) {
+    sendJson(response, 500, { error: "GEMINI_API_KEY is not configured." });
     return;
   }
 
   try {
-    const result = await createClientSecret({
-      apiKey: env.OPENAI_API_KEY,
+    const result = await createEphemeralToken({
+      apiKey: env.GEMINI_API_KEY,
       targetLanguage,
-      model: env.OPENAI_TRANSLATION_MODEL,
-      inputTranscriptionModel: env.OPENAI_INPUT_TRANSCRIPTION_MODEL,
+      model: env.GEMINI_TRANSLATION_MODEL,
       fetchImpl,
     });
     sendJson(response, 200, result);
   } catch (error) {
-    if (error?.name === "OpenAIRequestError") {
+    if (error?.name === "GeminiRequestError") {
       sendJson(response, 502, {
         error: error.message,
         status: error.status,
         details: parseJsonOrText(error.body),
+      });
+      return;
+    }
+    if (error?.name === "GeminiNetworkError") {
+      sendJson(response, 502, {
+        error: error.message,
       });
       return;
     }
