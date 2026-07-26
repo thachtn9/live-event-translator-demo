@@ -5,6 +5,7 @@ import {
   Pcm16Chunker,
 } from "./lib/audio-chunks.js";
 import { MessageType } from "./lib/messages.js";
+import { createEphemeralToken } from "./lib/session.js";
 
 const OUTPUT_SAMPLE_RATE = 24_000;
 
@@ -67,7 +68,7 @@ async function handleOffscreenMessage(message) {
 
 async function startPipeline({
   streamId,
-  sessionApiBase,
+  geminiApiKey,
   targetLanguage,
   mix = 85,
 }) {
@@ -76,6 +77,11 @@ async function startPipeline({
   }
   if (!streamId) {
     throw new Error("Thiếu stream id bắt âm tab.");
+  }
+  if (!geminiApiKey) {
+    throw new Error(
+      "Chưa có Gemini API key. Chuột phải icon extension → Cài đặt → nhập API key.",
+    );
   }
 
   starting = true;
@@ -114,7 +120,7 @@ async function startPipeline({
     startInputMeter(captureStream);
 
     emitStatus("Đang tạo phiên Gemini Live Translate", "idle");
-    const session = await createSession(sessionApiBase, targetLanguage);
+    const session = await createSession(geminiApiKey, targetLanguage);
 
     emitStatus("Đang kết nối WebSocket", "idle");
     await connectGeminiLiveTranslate(session, captureStream);
@@ -130,28 +136,15 @@ async function startPipeline({
   }
 }
 
-async function createSession(sessionApiBase, targetLanguage) {
-  const response = await fetch(`${sessionApiBase}/session`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ targetLanguage }),
+async function createSession(geminiApiKey, targetLanguage) {
+  const session = await createEphemeralToken({
+    apiKey: geminiApiKey,
+    targetLanguage,
   });
-
-  let body;
-  try {
-    body = await response.json();
-  } catch {
-    throw new Error("Máy chủ phiên trả về JSON không hợp lệ.");
-  }
-
-  if (!response.ok) {
-    throw new Error(body.error ?? "Không tạo được phiên.");
-  }
-  if (!body.ws_url || !body.setup) {
+  if (!session.ws_url || !session.setup) {
     throw new Error("Phản hồi phiên thiếu ws_url hoặc setup.");
   }
-
-  return body;
+  return session;
 }
 
 async function connectGeminiLiveTranslate(session, stream) {

@@ -16,8 +16,8 @@ https://ai.google.dev/gemini-api/docs/live-api/live-translate
 - Streams tab audio to Gemini Live Translate over WebSocket as PCM 16 kHz.
 - Plays translated speech locally and displays translated transcript deltas.
 - Defaults the output language to Vietnamese.
-- Ships a Chrome/Edge Manifest V3 extension that captures the active tab from
-  a side panel (API key stays on the local token server).
+- Ships a Chrome/Edge Manifest V3 extension that captures the active tab and
+  mints Gemini Live tokens directly (API key stored in extension Options).
 
 Good demo sources:
 
@@ -61,43 +61,38 @@ http://127.0.0.1:5173
 
 ## Chrome / Edge extension
 
-The `extension/` folder is an unpacked Manifest V3 extension. It reuses the same
-local `POST /session` token server — the API key never ships inside the
-extension.
+The `extension/` folder is an unpacked Manifest V3 extension. It talks to Gemini
+Live Translate directly — no local token server required for the extension path.
 
-1. Start the token server:
-
-```bash
-npm run dev
-```
-
-2. In Chrome or Edge, open `chrome://extensions` (or `edge://extensions`).
-3. Enable **Developer mode**.
-4. Click **Load unpacked** and select the `extension/` directory in this repo.
+1. In Chrome or Edge, open `chrome://extensions` (or `edge://extensions`).
+2. Enable **Developer mode**.
+3. Click **Load unpacked** and select the `extension/` directory in this repo.
+4. Right-click the extension icon → **Options**, paste your **Gemini API key**,
+   and save (key is stored in `chrome.storage.local` on this machine only).
 5. Pin **Dịch sự kiện trực tiếp**.
 6. Open a tab that is playing event audio (http/https — not a `chrome://` page).
 7. Click the extension **toolbar icon on that event tab**. A floating overlay is
-   injected into the page (draggable, adjustable transparency).
+   injected into the page (draggable, resizable, adjustable transparency).
 8. In the overlay, keep Vietnamese selected and click **Bắt đầu dịch**.
 
-The extension captures that tab via `chrome.tabCapture`, mints a session token
-from `http://127.0.0.1:5173/session` by default, then streams PCM to Gemini Live
+The extension captures that tab via `chrome.tabCapture`, mints a short-lived
+ephemeral token from Google with your API key, then streams PCM to Gemini Live
 Translate from an offscreen document.
 
 If you see “Extension has not been invoked for the current page”, click the
 toolbar icon again on the event tab, then Start. Do not start capture from a
 `chrome://` / Web Store / extensions page.
 
-Drag the overlay header to move it. Use **Độ trong suốt** to fade the widget.
+Drag the overlay header to move it. Drag the bottom-right corner to resize.
+Use **Độ trong suốt** to fade the chrome (transcript text stays readable).
 Use **–** to collapse and **✕** to hide (click the toolbar icon again to show).
-
 
 ### Extension options
 
 - Right-click the extension icon → **Options**.
-- Set **Session API base URL** if your token server is not on
-  `http://127.0.0.1:5173`.
-- Click **Cấp quyền host** when using a non-default origin/port.
+- Paste a Gemini API key from
+  [Google AI Studio](https://aistudio.google.com/apikey).
+- Use **Xóa key** to remove the stored key from this browser profile.
 
 ### Extension layout
 
@@ -107,10 +102,12 @@ extension/
   background.js          # service worker (tabCapture + offscreen orchestration)
   content/overlay.js     # floating in-page modal UI
   offscreen.html|js      # AudioWorklet + WebSocket + playback
-  options.html|js|css    # sessionApiBase
-  lib/                   # shared audio helpers
+  options.html|js|css    # Gemini API key
+  lib/                   # shared audio + session helpers
 ```
 
+The local `npm run dev` server is still used for the **web demo** only
+(`http://127.0.0.1:5173`), not for the extension.
 ## End-User Flow To Record (web demo)
 
 1. Open an official event/interview/keynote tab with audio.

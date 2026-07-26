@@ -17,6 +17,6 @@ export const MessageType = {
   OFFSCREEN_SET_MIX: "OFFSCREEN_SET_MIX",
 };
 
-export const DEFAULT_SESSION_API_BASE = "http://127.0.0.1:5173";
+export const GEMINI_API_KEY_STORAGE_KEY = "geminiApiKey";
 export const DEFAULT_TARGET_LANGUAGE = "vi";
 export const DEFAULT_TRANSLATED_MIX = 85;

@@ -1,7 +1,7 @@
 import {
-  DEFAULT_SESSION_API_BASE,
   DEFAULT_TARGET_LANGUAGE,
   DEFAULT_TRANSLATED_MIX,
+  GEMINI_API_KEY_STORAGE_KEY,
   MessageType,
 } from "./lib/messages.js";
 
@@ -167,8 +167,13 @@ async function startTranslation({
     );
   }
 
-  const sessionApiBase = await getSessionApiBase();
-  await assertHostPermission(sessionApiBase);
+  const geminiApiKey = await getGeminiApiKey();
+  if (!geminiApiKey) {
+    throw new Error(
+      "Chưa có Gemini API key. Chuột phải icon extension → Cài đặt → nhập API key rồi thử lại.",
+    );
+  }
+
   await setupOffscreenDocument();
   await waitForOffscreenReady();
 
@@ -197,7 +202,7 @@ async function startTranslation({
     const response = await chrome.runtime.sendMessage({
       type: MessageType.OFFSCREEN_START,
       streamId,
-      sessionApiBase,
+      geminiApiKey,
       targetLanguage,
       mix: lastMix,
     });
@@ -297,48 +302,11 @@ async function getActiveTabId() {
   return current[0]?.id ?? null;
 }
 
-async function getSessionApiBase() {
-  const stored = await chrome.storage.sync.get({
-    sessionApiBase: DEFAULT_SESSION_API_BASE,
+async function getGeminiApiKey() {
+  const stored = await chrome.storage.local.get({
+    [GEMINI_API_KEY_STORAGE_KEY]: "",
   });
-  const value = String(stored.sessionApiBase ?? DEFAULT_SESSION_API_BASE).trim();
-  return value.replace(/\/+$/, "") || DEFAULT_SESSION_API_BASE;
-}
-
-async function assertHostPermission(sessionApiBase) {
-  let origin;
-  try {
-    const url = new URL(sessionApiBase);
-    origin = `${url.protocol}//${url.host}/*`;
-  } catch {
-    throw new Error("URL API phiên không hợp lệ. Hãy đặt trong Cài đặt extension.");
-  }
-
-  if (!chrome.permissions?.contains) {
-    return;
-  }
-
-  const hasPermission = await chrome.permissions.contains({
-    origins: [origin],
-  });
-  if (hasPermission) {
-    return;
-  }
-
-  if (chrome.permissions.request) {
-    try {
-      const granted = await chrome.permissions.request({ origins: [origin] });
-      if (granted) {
-        return;
-      }
-    } catch {
-      // Service worker có thể không xin được quyền — hướng user sang Options.
-    }
-  }
-
-  throw new Error(
-    `Thiếu quyền host cho ${origin}. Chuột phải icon extension → Cài đặt → “Cấp quyền host”.`,
-  );
+  return String(stored[GEMINI_API_KEY_STORAGE_KEY] ?? "").trim();
 }
 
 async function setupOffscreenDocument() {

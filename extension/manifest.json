@@ -12,13 +12,7 @@
     "activeTab"
   ],
   "host_permissions": [
-    "http://127.0.0.1:5173/*",
-    "http://localhost:5173/*",
     "https://generativelanguage.googleapis.com/*"
-  ],
-  "optional_host_permissions": [
-    "http://*/*",
-    "https://*/*"
   ],
   "background": {
     "service_worker": "background.js",

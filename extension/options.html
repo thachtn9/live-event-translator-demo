@@ -15,28 +15,37 @@
   <body>
     <main class="shell">
       <header>
-        <h1>Máy chủ phiên</h1>
+        <h1>Gemini API key</h1>
         <p>
-          Extension gọi <code>POST /session</code> để lấy token Gemini ngắn hạn.
-          Giữ API key trên server.
+          Extension tự tạo token phiên và gọi Gemini Live Translate. Key chỉ
+          lưu trên máy bạn (<code>chrome.storage.local</code>), không gửi lên
+          server demo.
         </p>
       </header>
 
       <div class="field">
-        <label for="sessionApiBase">URL gốc API phiên</label>
+        <label for="geminiApiKey">API key</label>
         <input
-          id="sessionApiBase"
-          type="url"
-          placeholder="http://127.0.0.1:5173"
+          id="geminiApiKey"
+          type="password"
+          placeholder="Dán Gemini API key"
           autocomplete="off"
+          spellcheck="false"
         />
+        <p class="hint">
+          Lấy key tại
+          <a
+            href="https://aistudio.google.com/apikey"
+            target="_blank"
+            rel="noreferrer"
+            >Google AI Studio</a
+          >.
+        </p>
       </div>
 
       <div class="actions">
         <button id="saveButton" type="button">Lưu</button>
-        <button id="permissionButton" type="button" class="secondary">
-          Cấp quyền host
-        </button>
+        <button id="clearButton" type="button" class="secondary">Xóa key</button>
       </div>
       <p id="status" role="status"></p>
     </main>

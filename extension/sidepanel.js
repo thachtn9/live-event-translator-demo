@@ -1,6 +1,5 @@
 import { buildAudioMixState } from "./lib/audio-mix.js";
 import {
-  DEFAULT_SESSION_API_BASE,
   DEFAULT_TRANSLATED_MIX,
   MessageType,
 } from "./lib/messages.js";
@@ -45,7 +44,6 @@ startButton.addEventListener("click", async () => {
   setStatus("Đang khởi động…", "idle");
 
   try {
-    await ensureSessionHostPermission();
     const result = await sendCommand({
       type: MessageType.START,
       targetLanguage: targetLanguage.value,
@@ -132,39 +130,6 @@ async function restoreState() {
     }
   } catch {
     // Fresh install / worker waking up.
-  }
-}
-
-async function ensureSessionHostPermission() {
-  const stored = await chrome.storage.sync.get({
-    sessionApiBase: DEFAULT_SESSION_API_BASE,
-  });
-  const sessionApiBase = String(
-    stored.sessionApiBase ?? DEFAULT_SESSION_API_BASE,
-  )
-    .trim()
-    .replace(/\/+$/, "");
-
-  let origin;
-  try {
-    const url = new URL(sessionApiBase || DEFAULT_SESSION_API_BASE);
-    origin = `${url.protocol}//${url.host}/*`;
-  } catch {
-    throw new Error("URL API phiên không hợp lệ. Hãy sửa trong Cài đặt.");
-  }
-
-  const hasPermission = await chrome.permissions.contains({
-    origins: [origin],
-  });
-  if (hasPermission) {
-    return;
-  }
-
-  const granted = await chrome.permissions.request({ origins: [origin] });
-  if (!granted) {
-    throw new Error(
-      `Không được cấp quyền host cho ${origin}. Mở Cài đặt để cấp quyền rồi thử lại.`,
-    );
   }
 }
 
