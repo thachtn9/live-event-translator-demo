@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dịch sự kiện trực tiếp</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="sidepanel.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="top">
+        <div>
+          <h1>Dịch sự kiện trực tiếp</h1>
+        </div>
+        <div class="status" aria-live="polite">
+          <span class="status-dot" id="statusDot"></span>
+          <span id="statusText">Đã dừng</span>
+        </div>
+      </header>
+
+      <section class="actions" aria-label="Điều khiển phiên">
+        <button id="startButton" type="button">Bắt đầu dịch</button>
+        <button id="stopButton" type="button" class="secondary" disabled>
+          Dừng
+        </button>
+      </section>
+
+      <section class="transcripts" aria-label="Phụ đề">
+        <div class="transcript-block">
+          <div class="field-row">
+            <h2>Tiếng gốc</h2>
+          </div>
+          <div
+            id="originalTranscript"
+            class="transcript"
+            aria-live="polite"
+            data-empty="Các câu gốc gần nhất sẽ hiện tại đây."
+          ></div>
+        </div>
+
+        <div class="transcript-block">
+          <div class="field-row">
+            <h2>Bản dịch</h2>
+          </div>
+          <div
+            id="translatedTranscript"
+            class="transcript"
+            aria-live="polite"
+            data-empty="Các câu dịch gần nhất sẽ hiện tại đây."
+          ></div>
+        </div>
+      </section>
+
+      <details class="settings">
+        <summary>Cài đặt</summary>
+        <div class="settings-body">
+          <div class="field">
+            <label for="targetLanguage">Ngôn ngữ đích</label>
+            <select id="targetLanguage">
+              <option value="vi" selected>Tiếng Việt</option>
+              <option value="en">Tiếng Anh</option>
+              <option value="es">Tiếng Tây Ban Nha</option>
+              <option value="pt">Tiếng Bồ Đào Nha</option>
+              <option value="fr">Tiếng Pháp</option>
+              <option value="ja">Tiếng Nhật</option>
+              <option value="ru">Tiếng Nga</option>
+              <option value="zh">Tiếng Trung</option>
+              <option value="de">Tiếng Đức</option>
+              <option value="ko">Tiếng Hàn</option>
+              <option value="hi">Tiếng Hindi</option>
+              <option value="id">Tiếng Indonesia</option>
+              <option value="it">Tiếng Ý</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <div class="field-row">
+              <label for="audioMix">Trộn âm thanh</label>
+              <span id="mixValue">85% bản dịch</span>
+            </div>
+            <input
+              id="audioMix"
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              value="85"
+            />
+            <div class="mix-scale" aria-hidden="true">
+              <span id="originalMixLabel">Gốc 15%</span>
+              <span id="translatedMixLabel">Dịch 85%</span>
+            </div>
+          </div>
+
+          <div class="level" aria-label="Mức âm thanh">
+            <div class="field-row">
+              <span class="level-label">Mức âm tab</span>
+              <a href="options.html" id="optionsLink">Tùy chọn nâng cao</a>
+            </div>
+            <div
+              class="level-track"
+              role="meter"
+              aria-label="Mức âm thanh tab đang bắt"
+              aria-valuemin="0"
+              aria-valuemax="1"
+              aria-valuenow="0"
+              id="inputMeter"
+            >
+              <div class="level-fill" id="inputMeterFill"></div>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <details class="howto">
+        <summary>Hướng dẫn</summary>
+        <ol>
+          <li>Chạy server token: <code>npm run dev</code></li>
+          <li>Mở tab http(s) đang phát âm thanh sự kiện</li>
+          <li>Bấm icon extension trên tab đó</li>
+          <li>Nhấn <strong>Bắt đầu dịch</strong></li>
+        </ol>
+      </details>
+    </main>
+
+    <script src="sidepanel.js" type="module"></script>
+  </body>
+</html>

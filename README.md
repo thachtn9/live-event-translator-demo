@@ -16,6 +16,8 @@ https://ai.google.dev/gemini-api/docs/live-api/live-translate
 - Streams tab audio to Gemini Live Translate over WebSocket as PCM 16 kHz.
 - Plays translated speech locally and displays translated transcript deltas.
 - Defaults the output language to Vietnamese.
+- Ships a Chrome/Edge Manifest V3 extension that captures the active tab from
+  a side panel (API key stays on the local token server).
 
 Good demo sources:
 
@@ -40,7 +42,7 @@ PORT=5173
 HOST=127.0.0.1
 ```
 
-## Run
+## Run (web demo)
 
 If you are behind a corporate proxy (`HTTPS_PROXY` / `HTTP_PROXY`), the npm
 scripts already pass Node's `--use-env-proxy` flag so server-side Gemini calls
@@ -57,7 +59,59 @@ Open the printed local URL, normally:
 http://127.0.0.1:5173
 ```
 
-## End-User Flow To Record
+## Chrome / Edge extension
+
+The `extension/` folder is an unpacked Manifest V3 extension. It reuses the same
+local `POST /session` token server — the API key never ships inside the
+extension.
+
+1. Start the token server:
+
+```bash
+npm run dev
+```
+
+2. In Chrome or Edge, open `chrome://extensions` (or `edge://extensions`).
+3. Enable **Developer mode**.
+4. Click **Load unpacked** and select the `extension/` directory in this repo.
+5. Pin **Dịch sự kiện trực tiếp**.
+6. Open a tab that is playing event audio (http/https — not a `chrome://` page).
+7. Click the extension **toolbar icon on that event tab**. A floating overlay is
+   injected into the page (draggable, adjustable transparency).
+8. In the overlay, keep Vietnamese selected and click **Bắt đầu dịch**.
+
+The extension captures that tab via `chrome.tabCapture`, mints a session token
+from `http://127.0.0.1:5173/session` by default, then streams PCM to Gemini Live
+Translate from an offscreen document.
+
+If you see “Extension has not been invoked for the current page”, click the
+toolbar icon again on the event tab, then Start. Do not start capture from a
+`chrome://` / Web Store / extensions page.
+
+Drag the overlay header to move it. Use **Độ trong suốt** to fade the widget.
+Use **–** to collapse and **✕** to hide (click the toolbar icon again to show).
+
+
+### Extension options
+
+- Right-click the extension icon → **Options**.
+- Set **Session API base URL** if your token server is not on
+  `http://127.0.0.1:5173`.
+- Click **Cấp quyền host** when using a non-default origin/port.
+
+### Extension layout
+
+```text
+extension/
+  manifest.json
+  background.js          # service worker (tabCapture + offscreen orchestration)
+  content/overlay.js     # floating in-page modal UI
+  offscreen.html|js      # AudioWorklet + WebSocket + playback
+  options.html|js|css    # sessionApiBase
+  lib/                   # shared audio helpers
+```
+
+## End-User Flow To Record (web demo)
 
 1. Open an official event/interview/keynote tab with audio.
 2. Open this app in another tab.

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cài đặt — Dịch sự kiện trực tiếp</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header>
+        <h1>Máy chủ phiên</h1>
+        <p>
+          Extension gọi <code>POST /session</code> để lấy token Gemini ngắn hạn.
+          Giữ API key trên server.
+        </p>
+      </header>
+
+      <div class="field">
+        <label for="sessionApiBase">URL gốc API phiên</label>
+        <input
+          id="sessionApiBase"
+          type="url"
+          placeholder="http://127.0.0.1:5173"
+          autocomplete="off"
+        />
+      </div>
+
+      <div class="actions">
+        <button id="saveButton" type="button">Lưu</button>
+        <button id="permissionButton" type="button" class="secondary">
+          Cấp quyền host
+        </button>
+      </div>
+      <p id="status" role="status"></p>
+    </main>
+
+    <script src="options.js" type="module"></script>
+  </body>
+</html>

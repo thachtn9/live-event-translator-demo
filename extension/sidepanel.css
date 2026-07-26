@@ -1,0 +1,370 @@
+:root {
+  color-scheme: dark;
+  --bg: #121417;
+  --panel: #1a1d21;
+  --panel-2: #15181c;
+  --border: #2a2f36;
+  --border-strong: #3a414b;
+  --text: #e8eaed;
+  --text-secondary: #a8b0ba;
+  --text-muted: #7b8490;
+  --accent: #3d9a8b;
+  --accent-hover: #48a996;
+  --accent-text: #041512;
+  --danger: #d46b6b;
+  --success: #5fad7a;
+  --radius: 6px;
+  --font: "IBM Plex Sans", "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 400;
+}
+
+button,
+input,
+select,
+summary {
+  font: inherit;
+}
+
+.shell {
+  width: min(100%, 420px);
+  margin: 0 auto;
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+h1 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 48%;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-dot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.status-dot.live {
+  background: var(--success);
+}
+
+.status-dot.error {
+  background: var(--danger);
+}
+
+.level,
+.transcripts,
+.settings-body {
+  display: grid;
+  gap: 10px;
+}
+
+.transcript-block {
+  display: grid;
+  gap: 8px;
+}
+
+.transcript {
+  min-height: 140px;
+  max-height: 32vh;
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+label,
+.level-label,
+h2 {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+#mixValue {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+select,
+input[type="url"] {
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
+}
+
+select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+    linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) calc(50% - 2px),
+    calc(100% - 9px) calc(50% - 2px);
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 28px;
+}
+
+select option {
+  background: var(--panel);
+  color: var(--text);
+}
+
+input[type="range"] {
+  width: 100%;
+  height: 22px;
+  margin: 0;
+  appearance: none;
+  background: transparent;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border-strong);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5.5px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--text);
+  cursor: pointer;
+}
+
+input[type="range"]::-moz-range-track {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border-strong);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--text);
+  cursor: pointer;
+}
+
+.mix-scale {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 88px;
+  gap: 8px;
+}
+
+button {
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--accent-text);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+button:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+button.secondary {
+  border-color: var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+button.secondary:hover:not(:disabled) {
+  background: var(--panel);
+  color: var(--text);
+}
+
+button:disabled {
+  border-color: var(--border);
+  background: var(--panel-2);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.level-track {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--border);
+}
+
+.level-fill {
+  width: 0%;
+  height: 100%;
+  background: var(--accent);
+  transition: width 80ms linear;
+}
+
+.settings a,
+.howto a {
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.settings a:hover,
+.howto a:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+.transcript:empty::before {
+  content: attr(data-empty);
+  color: var(--text-muted);
+}
+
+.settings,
+.howto {
+  border-top: 1px solid var(--border);
+  padding-top: 6px;
+}
+
+.settings summary,
+.howto summary {
+  cursor: pointer;
+  list-style: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 0;
+  user-select: none;
+}
+
+.settings summary::-webkit-details-marker,
+.howto summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings summary::before,
+.howto summary::before {
+  content: "▸ ";
+  color: var(--text-muted);
+}
+
+.settings[open] summary::before,
+.howto[open] summary::before {
+  content: "▾ ";
+}
+
+.settings-body {
+  padding: 6px 0 2px;
+}
+
+.howto ol {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.howto li + li {
+  margin-top: 4px;
+}
+
+code {
+  font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.92em;
+  color: var(--text);
+}
+
+input:focus-visible,
+select:focus-visible,
+button:focus-visible,
+summary:focus-visible,
+a:focus-visible {
+  outline: 2px solid rgb(61 154 139 / 55%);
+  outline-offset: 1px;
+}
+
+body.is-error .status {
+  border-color: rgb(212 107 107 / 45%);
+  color: #e8b4b4;
+}
