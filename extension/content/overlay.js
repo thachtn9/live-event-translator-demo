@@ -826,6 +826,9 @@
       pendingRawText = pendingRawText.slice(snapshot.length - slice.rest.length);
       polishInFlight = false;
       renderFullPanel();
+      if (!forceAll) {
+        void maybePolishBatch(false);
+      }
     } catch (error) {
       // Lỗi làm sạch không chặn phiên dịch: giữ nguyên văn bản thô đang chờ.
       polishInFlight = false;
