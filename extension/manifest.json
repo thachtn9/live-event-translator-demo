@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Live Event Translator",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Real-time speech and captions for live events in your browser tab — powered by Gemini Live Translate.",
   "permissions": [
     "scripting",

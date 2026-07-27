@@ -68,7 +68,9 @@ function applySnapshot(snapshot) {
   }
   renderParagraphs(display);
   if (stuckNearBottom) {
-    bodyEl.scrollTop = bodyEl.scrollHeight;
+    requestAnimationFrame(() => {
+      bodyEl.scrollTop = bodyEl.scrollHeight;
+    });
   }
   setStatus(snapshot.status || "");
 }

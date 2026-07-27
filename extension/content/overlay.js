@@ -32,6 +32,8 @@
   let running = false;
   let dragState = null;
   let resizeState = null;
+  /** Height to restore after expanding from a collapsed (header-only) state. */
+  let expandedHeight = null;
 
   const MIN_WIDTH = 280;
   const MIN_HEIGHT = 240;
@@ -294,9 +296,9 @@
     }
   });
 
-  minimizeButton.addEventListener("click", () => {
-    widget.classList.toggle("collapsed");
-    minimizeButton.textContent = widget.classList.contains("collapsed") ? "+" : "–";
+  minimizeButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    setCollapsed(!widget.classList.contains("collapsed"));
   });
 
   closeButton.addEventListener("click", () => {
@@ -578,17 +580,49 @@
 
   async function saveUiPrefs() {
     const rect = host.getBoundingClientRect();
+    const collapsed = widget.classList.contains("collapsed");
     try {
       await chrome.storage.local.set({
         overlayOpacity: Number(opacityRange.value) || 0,
         overlayLeft: Math.round(rect.left),
         overlayTop: Math.round(rect.top),
         overlayWidth: Math.round(rect.width),
-        overlayHeight: Math.round(rect.height),
+        // Prefer remembered expanded height while collapsed so we don't persist header-only size.
+        overlayHeight: collapsed
+          ? expandedHeight == null
+            ? null
+            : Math.round(expandedHeight)
+          : Math.round(rect.height),
       });
     } catch {
       // ignore
     }
+  }
+
+  function setCollapsed(collapsed) {
+    if (collapsed) {
+      if (widget.classList.contains("sized")) {
+        expandedHeight = host.getBoundingClientRect().height;
+      } else {
+        expandedHeight = null;
+      }
+      widget.classList.add("collapsed");
+      host.style.height = "";
+      widget.classList.remove("sized");
+      minimizeButton.textContent = "+";
+      minimizeButton.title = "Mở rộng";
+      minimizeButton.setAttribute("aria-label", "Mở rộng");
+      return;
+    }
+
+    widget.classList.remove("collapsed");
+    if (expandedHeight != null) {
+      applySize(host.getBoundingClientRect().width, expandedHeight);
+    }
+    expandedHeight = null;
+    minimizeButton.textContent = "–";
+    minimizeButton.title = "Thu gọn";
+    minimizeButton.setAttribute("aria-label", "Thu gọn");
   }
 
   function applySize(width, height) {
@@ -596,6 +630,10 @@
     if (height == null) {
       host.style.height = "";
       widget.classList.remove("sized");
+      return;
+    }
+    if (widget.classList.contains("collapsed")) {
+      expandedHeight = Math.round(height);
       return;
     }
     host.style.height = `${Math.round(height)}px`;
@@ -737,6 +775,9 @@
       }
       .widget.sized {
         height: 100%;
+      }
+      .widget.collapsed {
+        height: auto;
       }
       .widget.dragging {
         box-shadow: 0 16px 44px rgb(0 0 0 / calc(0.42 * var(--panel-alpha)));
