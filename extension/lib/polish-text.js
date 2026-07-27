@@ -4,6 +4,9 @@ export const POLISH_MODEL_FALLBACKS = [
   "gemini-2.0-flash-lite",
   "gemini-2.5-flash",
 ];
+export const POLISH_FAILURE_COOLDOWN_MS = 30000;
+export const MIN_POLISH_LENGTH_RATIO = 0.4;
+export const MIN_POLISH_LENGTH_CHECK = 40;
 
 const SENTENCE_END = /([.!?…。！？]+)(?:\s+|$)/g;
 
@@ -67,6 +70,45 @@ export function takeAllCompletedAndRest(pendingRawText) {
     return { batchText: rest.trim(), rest: "" };
   }
   return { batchText, rest };
+}
+
+// Sau một lần làm sạch lỗi, chỉ thử lại khi đã hết cooldown hoặc đã dồn thêm
+// trọn một batch mới — nếu không mỗi delta transcript sẽ gọi lại API liên tục.
+export function isPolishCooldownActive(failure, options = {}) {
+  if (!failure) {
+    return false;
+  }
+  const {
+    now = Date.now(),
+    pendingCompleted = 0,
+    cooldownMs = POLISH_FAILURE_COOLDOWN_MS,
+    batchSize = POLISH_BATCH_SIZE,
+  } = options;
+  if (now - Number(failure.at ?? 0) >= cooldownMs) {
+    return false;
+  }
+  if (pendingCompleted - Number(failure.pendingCompleted ?? 0) >= batchSize) {
+    return false;
+  }
+  return true;
+}
+
+// Model đôi khi trả về tóm tắt hoặc chuỗi rỗng: coi như thất bại thay vì thay
+// thế nguyên batch thô bằng vài chữ.
+export function isImplausiblePolish(cleaned, batchText, options = {}) {
+  const {
+    ratio = MIN_POLISH_LENGTH_RATIO,
+    minLength = MIN_POLISH_LENGTH_CHECK,
+  } = options;
+  const source = String(batchText ?? "").trim();
+  const result = String(cleaned ?? "").trim();
+  if (!result) {
+    return true;
+  }
+  if (source.length <= minLength) {
+    return false;
+  }
+  return result.length < source.length * ratio;
 }
 
 export function buildPolishPrompt(batchText) {

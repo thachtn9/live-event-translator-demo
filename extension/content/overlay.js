@@ -29,10 +29,19 @@
   let fullPanelOpen = false;
   let polishedText = "";
   let pendingRawText = "";
+  let fullRawText = "";
   let polishedSentenceCount = 0;
   let polishInFlight = false;
   let polishFlushQueued = false;
+  let polishFailure = null;
+  let lastPolishError = "";
+  let lastForceFlushAt = 0;
+  let transcriptGeneration = 0;
   const POLISH_BATCH_SIZE = 18;
+  const POLISH_FAILURE_COOLDOWN_MS = 30000;
+  const MIN_POLISH_LENGTH_RATIO = 0.4;
+  const MIN_POLISH_LENGTH_CHECK = 40;
+  const FORCE_FLUSH_DEBOUNCE_MS = 2000;
   const SCROLL_STICK_SLACK = 24;
 
   const MIN_WIDTH = 280;
@@ -713,11 +722,18 @@
   }
 
   function resetFullTranscript() {
+    // Tăng generation để phản hồi làm sạch của phiên cũ bị bỏ qua khi quay về.
+    transcriptGeneration += 1;
     polishedText = "";
     pendingRawText = "";
+    fullRawText = "";
     polishedSentenceCount = 0;
-    polishInFlight = false;
     polishFlushQueued = false;
+    polishFailure = null;
+    lastPolishError = "";
+    lastForceFlushAt = 0;
+    // Không hạ polishInFlight ở đây: request cũ vẫn đang chạy và sẽ tự dọn khi
+    // trả về, giữ cờ bật tránh hai lượt làm sạch chồng nhau.
     renderFullPanel();
   }
 
@@ -737,12 +753,17 @@
     const totalCompleted = polishedSentenceCount + pendingCompleted;
     if (polishInFlight) {
       fullPanelStatus.textContent = "Đang làm sạch…";
+    } else if (lastPolishError) {
+      // Giữ lỗi trên panel tới khi có lượt làm sạch thành công hoặc reset.
+      fullPanelStatus.textContent = lastPolishError;
     } else if (!display.trim()) {
       fullPanelStatus.textContent = "Chưa có bản dịch";
+    } else if (totalCompleted > 0) {
+      fullPanelStatus.textContent = `Đã làm sạch ${polishedSentenceCount}/${totalCompleted} câu`;
+    } else if (polishedText.trim()) {
+      fullPanelStatus.textContent = "Đã làm sạch đoạn hiện có";
     } else {
-      fullPanelStatus.textContent = `Đã làm sạch ${polishedSentenceCount}/${
-        totalCompleted || polishedSentenceCount
-      } câu`;
+      fullPanelStatus.textContent = "Đang chờ đủ câu để làm sạch";
     }
   }
 
@@ -785,11 +806,30 @@
       return;
     }
     pendingRawText += text;
+    fullRawText += text;
     renderFullPanel();
     void maybePolishBatch(false);
   }
 
   async function maybePolishBatch(forceAll) {
+    if (forceAll) {
+      // STOPPED và nút Dừng đều flush: bỏ qua lần thứ hai sát nhau.
+      const now = Date.now();
+      if (!pendingRawText.trim() || now - lastForceFlushAt < FORCE_FLUSH_DEBOUNCE_MS) {
+        return;
+      }
+      lastForceFlushAt = now;
+    } else if (
+      isPolishCooldownActive(polishFailure, {
+        now: Date.now(),
+        pendingCompleted: countCompletedSentences(pendingRawText),
+        cooldownMs: POLISH_FAILURE_COOLDOWN_MS,
+        batchSize: POLISH_BATCH_SIZE,
+      })
+    ) {
+      return;
+    }
+
     if (polishInFlight) {
       // Giữ lại yêu cầu làm sạch phần còn lại để chạy ngay sau lượt hiện tại.
       polishFlushQueued = polishFlushQueued || Boolean(forceAll);
@@ -808,6 +848,7 @@
       return;
     }
 
+    const generation = transcriptGeneration;
     polishInFlight = true;
     renderFullPanel();
     try {
@@ -815,36 +856,61 @@
         type: MessageType.POLISH_TRANSCRIPT,
         text: slice.batchText,
       });
-      if (!response?.ok) {
-        throw new Error(response?.error ?? "Làm sạch thất bại.");
-      }
-      const cleaned = String(response.text ?? "").trim();
-      polishedText +=
-        (polishedText && !polishedText.endsWith("\n") ? "\n" : "") + cleaned + "\n";
-      polishedSentenceCount += countCompletedSentences(slice.batchText);
-      // Chỉ cắt đúng phần đã gửi đi: text đến trong lúc chờ phải được giữ lại.
-      pendingRawText = pendingRawText.slice(snapshot.length - slice.rest.length);
-      polishInFlight = false;
-      renderFullPanel();
-      if (!forceAll) {
-        void maybePolishBatch(false);
+      if (generation !== transcriptGeneration) {
+        // Phiên đã reset trong lúc chờ: bỏ phản hồi, không đụng vào buffer mới.
+        polishInFlight = false;
+        renderFullPanel();
+      } else {
+        if (!response?.ok) {
+          throw new Error(response?.error ?? "Làm sạch thất bại.");
+        }
+        const cleaned = String(response.text ?? "").trim();
+        if (
+          isImplausiblePolish(cleaned, slice.batchText, {
+            ratio: MIN_POLISH_LENGTH_RATIO,
+            minLength: MIN_POLISH_LENGTH_CHECK,
+          })
+        ) {
+          throw new Error("Bản làm sạch ngắn bất thường — giữ nguyên văn bản thô.");
+        }
+        polishedText +=
+          (polishedText && !polishedText.endsWith("\n") ? "\n" : "") + cleaned + "\n";
+        polishedSentenceCount += countCompletedSentences(slice.batchText);
+        // Chỉ cắt đúng phần đã gửi đi: text đến trong lúc chờ phải được giữ lại.
+        pendingRawText = pendingRawText.slice(snapshot.length - slice.rest.length);
+        polishInFlight = false;
+        polishFailure = null;
+        lastPolishError = "";
+        renderFullPanel();
+        if (!forceAll) {
+          void maybePolishBatch(false);
+        }
       }
     } catch (error) {
-      // Lỗi làm sạch không chặn phiên dịch: giữ nguyên văn bản thô đang chờ.
       polishInFlight = false;
+      if (generation === transcriptGeneration) {
+        // Lỗi làm sạch không chặn phiên dịch: giữ nguyên văn bản thô đang chờ
+        // và chờ hết cooldown trước khi tự thử lại.
+        polishFailure = {
+          at: Date.now(),
+          pendingCompleted: countCompletedSentences(pendingRawText),
+        };
+        lastPolishError = error instanceof Error ? error.message : String(error);
+      }
       renderFullPanel();
-      fullPanelStatus.textContent =
-        error instanceof Error ? error.message : String(error);
     }
 
     if (polishFlushQueued) {
       polishFlushQueued = false;
+      // Flush đã xếp hàng là lượt hợp lệ, không tính vào chống trùng ở trên.
+      lastForceFlushAt = 0;
       await maybePolishBatch(true);
     }
   }
 
   function downloadTranscriptFile() {
-    const display = joinDisplay(polishedText, pendingRawText).trim();
+    // Nếu chưa có gì để hiển thị thì vẫn cứu được bản thô đã gom.
+    const display = joinDisplay(polishedText, pendingRawText).trim() || fullRawText.trim();
     if (!display) {
       return;
     }
@@ -925,6 +991,41 @@
       return { batchText: rest.trim(), rest: "" };
     }
     return { batchText, rest };
+  }
+
+  function isPolishCooldownActive(failure, options = {}) {
+    if (!failure) {
+      return false;
+    }
+    const {
+      now = Date.now(),
+      pendingCompleted = 0,
+      cooldownMs = POLISH_FAILURE_COOLDOWN_MS,
+      batchSize = POLISH_BATCH_SIZE,
+    } = options;
+    if (now - Number(failure.at ?? 0) >= cooldownMs) {
+      return false;
+    }
+    if (pendingCompleted - Number(failure.pendingCompleted ?? 0) >= batchSize) {
+      return false;
+    }
+    return true;
+  }
+
+  function isImplausiblePolish(cleaned, batchText, options = {}) {
+    const {
+      ratio = MIN_POLISH_LENGTH_RATIO,
+      minLength = MIN_POLISH_LENGTH_CHECK,
+    } = options;
+    const source = String(batchText ?? "").trim();
+    const result = String(cleaned ?? "").trim();
+    if (!result) {
+      return true;
+    }
+    if (source.length <= minLength) {
+      return false;
+    }
+    return result.length < source.length * ratio;
   }
 
   function joinDisplay(polished, pending) {

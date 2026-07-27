@@ -71,6 +71,57 @@ test("buildSaveFilename uses ban-dich stamp", async () => {
   assert.equal(name, "ban-dich-20260727-0905.txt");
 });
 
+test("isPolishCooldownActive blocks auto retry until timer or a new full batch", async () => {
+  const { isPolishCooldownActive, POLISH_FAILURE_COOLDOWN_MS, POLISH_BATCH_SIZE } =
+    await importPolishText();
+  const failure = { at: 1000, pendingCompleted: 20 };
+
+  assert.equal(isPolishCooldownActive(null, { now: 1000, pendingCompleted: 99 }), false);
+
+  // Mỗi delta transcript ngay sau lỗi phải bị chặn, không gọi lại API.
+  for (let i = 0; i < 5; i += 1) {
+    assert.equal(
+      isPolishCooldownActive(failure, { now: 1000 + i * 100, pendingCompleted: 20 + i }),
+      true,
+    );
+  }
+
+  assert.equal(
+    isPolishCooldownActive(failure, {
+      now: 1000 + POLISH_FAILURE_COOLDOWN_MS,
+      pendingCompleted: 20,
+    }),
+    false,
+  );
+  assert.equal(
+    isPolishCooldownActive(failure, {
+      now: 1500,
+      pendingCompleted: 20 + POLISH_BATCH_SIZE,
+    }),
+    false,
+  );
+  assert.equal(
+    isPolishCooldownActive(failure, {
+      now: 1500,
+      pendingCompleted: 20 + POLISH_BATCH_SIZE - 1,
+    }),
+    true,
+  );
+});
+
+test("isImplausiblePolish rejects empty or truncated cleaned text", async () => {
+  const { isImplausiblePolish } = await importPolishText();
+  const batch = Array.from({ length: 6 }, (_, i) => `Câu số ${i + 1} khá dài.`).join(" ");
+
+  assert.equal(isImplausiblePolish("", batch), true);
+  assert.equal(isImplausiblePolish("   ", batch), true);
+  assert.equal(isImplausiblePolish("Tóm tắt ngắn.", batch), true);
+  assert.equal(isImplausiblePolish(batch, batch), false);
+  assert.equal(isImplausiblePolish(`${batch} thêm chút.`, batch), false);
+  // Batch ngắn thì không áp tỉ lệ: làm sạch có thể cắt bớt hợp lệ.
+  assert.equal(isImplausiblePolish("Ok.", "uh ok."), false);
+});
+
 test("joinDisplay concatenates polished and pending", async () => {
   const { joinDisplay } = await importPolishText();
   assert.equal(joinDisplay("A. ", "B."), "A. B.");
