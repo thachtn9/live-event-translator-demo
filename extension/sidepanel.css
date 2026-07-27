@@ -139,6 +139,33 @@ h1 {
   gap: 10px;
 }
 
+.transcript-head {
+  min-height: 28px;
+  gap: 10px;
+}
+
+.transcript-head h2 {
+  flex: 0 0 auto;
+}
+
+.transcript-head .inline-meter {
+  flex: 1 1 auto;
+  max-width: 140px;
+  margin-left: auto;
+  height: 5px;
+  align-self: center;
+}
+
+.transcript-head select {
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 118px;
+  max-width: 58%;
+  height: 28px;
+  padding: 0 28px 0 8px;
+  font-size: 12px;
+}
+
 label,
 .level-label,
 h2 {
@@ -156,7 +183,9 @@ h2 {
 }
 
 select,
-input[type="url"] {
+input[type="url"],
+input[type="password"],
+input[type="text"] {
   width: 100%;
   height: 36px;
   padding: 0 10px;
@@ -164,6 +193,64 @@ input[type="url"] {
   border-radius: var(--radius);
   background: var(--panel);
   color: var(--text);
+}
+
+.key-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.key-actions button:first-child {
+  flex: 1 1 auto;
+}
+
+.key-actions button.secondary {
+  flex: 0 0 auto;
+  min-width: 56px;
+}
+
+.compact-btn {
+  width: auto;
+  min-width: 52px;
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.api-key-summary {
+  min-height: 28px;
+}
+
+.hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.hint[hidden],
+.api-key-summary[hidden],
+.api-key-editor[hidden],
+button[hidden] {
+  display: none !important;
+}
+
+.api-key-field:not(.is-editing) .api-key-editor {
+  display: none !important;
+}
+
+.api-key-field.is-editing .api-key-summary,
+.api-key-field:not(.has-key) .api-key-summary {
+  display: none !important;
+}
+
+.hint a {
+  color: var(--accent-hover);
+  text-decoration: none;
+}
+
+.hint a:hover {
+  color: var(--text);
+  text-decoration: underline;
 }
 
 select {

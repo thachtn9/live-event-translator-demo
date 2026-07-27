@@ -86,7 +86,7 @@ export function buildEphemeralTokenRequest({
   now = Date.now(),
 }) {
   if (!apiKey) {
-    throw new Error("Cần Gemini API key. Mở Cài đặt extension để nhập key.");
+    throw new Error("Cần Gemini API key. Mở Cài đặt trên overlay để nhập key.");
   }
 
   const language = normalizeTargetLanguage(targetLanguage);
@@ -191,7 +191,7 @@ function describeRequestFailure(status, body) {
     return "Yêu cầu Gemini không hợp lệ. Kiểm tra API key và ngôn ngữ đích.";
   }
   if (status === 401 || status === 403) {
-    return "API key Gemini bị từ chối. Mở Cài đặt extension và kiểm tra lại key.";
+    return "API key Gemini bị từ chối. Kiểm tra lại key trong Cài đặt trên overlay.";
   }
   if (status === 429) {
     return "Gemini đang giới hạn tốc độ. Thử lại sau ít phút.";

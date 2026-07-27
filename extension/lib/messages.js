@@ -19,4 +19,4 @@ export const MessageType = {
 
 export const GEMINI_API_KEY_STORAGE_KEY = "geminiApiKey";
 export const DEFAULT_TARGET_LANGUAGE = "vi";
-export const DEFAULT_TRANSLATED_MIX = 85;
+export const DEFAULT_TRANSLATED_MIX = 95;

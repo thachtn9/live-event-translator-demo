@@ -4,7 +4,7 @@ import {
   PCM16_INPUT_SAMPLE_RATE,
   Pcm16Chunker,
 } from "./lib/audio-chunks.js";
-import { MessageType } from "./lib/messages.js";
+import { DEFAULT_TRANSLATED_MIX, MessageType } from "./lib/messages.js";
 import { createEphemeralToken } from "./lib/session.js";
 
 const OUTPUT_SAMPLE_RATE = 24_000;
@@ -19,7 +19,7 @@ let websocket = null;
 let playback = null;
 let setupComplete = false;
 let inputChunksSent = 0;
-let mixPercent = 85;
+let mixPercent = DEFAULT_TRANSLATED_MIX;
 let meterContext = null;
 let meterSource = null;
 let meterAnalyser = null;
@@ -70,7 +70,7 @@ async function startPipeline({
   streamId,
   geminiApiKey,
   targetLanguage,
-  mix = 85,
+  mix = DEFAULT_TRANSLATED_MIX,
 }) {
   if (starting || websocket) {
     throw new Error("Pipeline dịch đang chạy hoặc đang khởi động.");
@@ -80,7 +80,7 @@ async function startPipeline({
   }
   if (!geminiApiKey) {
     throw new Error(
-      "Chưa có Gemini API key. Chuột phải icon extension → Cài đặt → nhập API key.",
+      "Chưa có Gemini API key. Mở Cài đặt trên overlay, dán key rồi bấm Lưu key.",
     );
   }
 

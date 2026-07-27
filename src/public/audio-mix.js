@@ -1,4 +1,4 @@
-export const DEFAULT_TRANSLATED_MIX = 85;
+export const DEFAULT_TRANSLATED_MIX = 95;
 
 export function clampTranslatedMix(value) {
   const parsed = Number.parseInt(String(value), 10);

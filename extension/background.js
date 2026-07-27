@@ -170,7 +170,7 @@ async function startTranslation({
   const geminiApiKey = await getGeminiApiKey();
   if (!geminiApiKey) {
     throw new Error(
-      "Chưa có Gemini API key. Chuột phải icon extension → Cài đặt → nhập API key rồi thử lại.",
+      "Chưa có Gemini API key. Mở Cài đặt trên overlay, dán key rồi bấm Lưu key.",
     );
   }
 

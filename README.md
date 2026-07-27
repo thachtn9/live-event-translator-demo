@@ -17,7 +17,7 @@ https://ai.google.dev/gemini-api/docs/live-api/live-translate
 - Plays translated speech locally and displays translated transcript deltas.
 - Defaults the output language to Vietnamese.
 - Ships a Chrome/Edge Manifest V3 extension that captures the active tab and
-  mints Gemini Live tokens directly (API key stored in extension Options).
+  mints Gemini Live tokens directly (API key stored in overlay Settings).
 
 Good demo sources:
 
@@ -67,13 +67,13 @@ Live Translate directly — no local token server required for the extension pat
 1. In Chrome or Edge, open `chrome://extensions` (or `edge://extensions`).
 2. Enable **Developer mode**.
 3. Click **Load unpacked** and select the `extension/` directory in this repo.
-4. Right-click the extension icon → **Options**, paste your **Gemini API key**,
-   and save (key is stored in `chrome.storage.local` on this machine only).
-5. Pin **Dịch sự kiện trực tiếp**.
-6. Open a tab that is playing event audio (http/https — not a `chrome://` page).
-7. Click the extension **toolbar icon on that event tab**. A floating overlay is
+4. Pin **Dịch sự kiện trực tiếp**.
+5. Open a tab that is playing event audio (http/https — not a `chrome://` page).
+6. Click the extension **toolbar icon on that event tab**. A floating overlay is
    injected into the page (draggable, resizable, adjustable transparency).
-8. In the overlay, keep Vietnamese selected and click **Bắt đầu dịch**.
+7. In the overlay **Cài đặt**, paste your **Gemini API key** and click **Lưu key**
+   (key is stored in `chrome.storage.local` on this machine only).
+8. Keep Vietnamese selected and click **Bắt đầu dịch**.
 
 The extension captures that tab via `chrome.tabCapture`, mints a short-lived
 ephemeral token from Google with your API key, then streams PCM to Gemini Live
@@ -87,12 +87,12 @@ Drag the overlay header to move it. Drag the bottom-right corner to resize.
 Use **Độ trong suốt** to fade the chrome (transcript text stays readable).
 Use **–** to collapse and **✕** to hide (click the toolbar icon again to show).
 
-### Extension options
+### Extension API key
 
-- Right-click the extension icon → **Options**.
-- Paste a Gemini API key from
+- In the overlay, open **Cài đặt** and paste a Gemini API key from
   [Google AI Studio](https://aistudio.google.com/apikey).
-- Use **Xóa key** to remove the stored key from this browser profile.
+- Click **Lưu key** (or **Xóa** to remove the stored key from this browser profile).
+- You can still use the dedicated Options page if preferred.
 
 ### Extension layout
 
@@ -100,9 +100,9 @@ Use **–** to collapse and **✕** to hide (click the toolbar icon again to sho
 extension/
   manifest.json
   background.js          # service worker (tabCapture + offscreen orchestration)
-  content/overlay.js     # floating in-page modal UI
+  content/overlay.js     # floating in-page modal UI + Gemini API key field
   offscreen.html|js      # AudioWorklet + WebSocket + playback
-  options.html|js|css    # Gemini API key
+  options.html|js|css    # optional dedicated API key page
   lib/                   # shared audio + session helpers
 ```
 

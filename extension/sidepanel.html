@@ -33,8 +33,20 @@
 
       <section class="transcripts" aria-label="Phụ đề">
         <div class="transcript-block">
-          <div class="field-row">
+          <div class="field-row transcript-head">
             <h2>Tiếng gốc</h2>
+            <div
+              class="level-track inline-meter"
+              role="meter"
+              aria-label="Mức âm tab"
+              aria-valuemin="0"
+              aria-valuemax="1"
+              aria-valuenow="0"
+              id="inputMeter"
+              title="Mức âm tab"
+            >
+              <div class="level-fill" id="inputMeterFill"></div>
+            </div>
           </div>
           <div
             id="originalTranscript"
@@ -45,24 +57,9 @@
         </div>
 
         <div class="transcript-block">
-          <div class="field-row">
+          <div class="field-row transcript-head">
             <h2>Bản dịch</h2>
-          </div>
-          <div
-            id="translatedTranscript"
-            class="transcript"
-            aria-live="polite"
-            data-empty="Các câu dịch gần nhất sẽ hiện tại đây."
-          ></div>
-        </div>
-      </section>
-
-      <details class="settings">
-        <summary>Cài đặt</summary>
-        <div class="settings-body">
-          <div class="field">
-            <label for="targetLanguage">Ngôn ngữ đích</label>
-            <select id="targetLanguage">
+            <select id="targetLanguage" aria-label="Ngôn ngữ đích" title="Ngôn ngữ đích">
               <option value="vi" selected>Tiếng Việt</option>
               <option value="en">Tiếng Anh</option>
               <option value="es">Tiếng Tây Ban Nha</option>
@@ -78,11 +75,60 @@
               <option value="it">Tiếng Ý</option>
             </select>
           </div>
+          <div
+            id="translatedTranscript"
+            class="transcript"
+            aria-live="polite"
+            data-empty="Các câu dịch gần nhất sẽ hiện tại đây."
+          ></div>
+        </div>
+      </section>
+
+      <details class="settings" open>
+        <summary>Cài đặt</summary>
+        <div class="settings-body">
+          <div class="field api-key-field is-editing" id="apiKeyField">
+            <div class="field-row api-key-summary" id="apiKeySummary" hidden>
+              <span class="level-label" id="apiKeySummaryText">API key: đã lưu</span>
+              <button id="editApiKeyButton" type="button" class="secondary compact-btn">
+                Sửa
+              </button>
+            </div>
+            <div class="api-key-editor" id="apiKeyEditor">
+              <label for="geminiApiKey">Gemini API key</label>
+              <input
+                id="geminiApiKey"
+                type="password"
+                placeholder="Dán Gemini API key"
+                autocomplete="off"
+                spellcheck="false"
+              />
+              <div class="key-actions">
+                <button id="saveApiKeyButton" type="button">Lưu key</button>
+                <button id="cancelApiKeyButton" type="button" class="secondary">
+                  Hủy
+                </button>
+                <button id="clearApiKeyButton" type="button" class="secondary">
+                  Xóa
+                </button>
+              </div>
+              <p class="hint" id="apiKeyStatus" role="status"></p>
+              <p class="hint">
+                Lấy key tại
+                <a
+                  href="https://aistudio.google.com/apikey"
+                  target="_blank"
+                  rel="noreferrer"
+                  >Google AI Studio</a
+                >.
+              </p>
+            </div>
+          </div>
 
           <div class="field">
             <div class="field-row">
               <label for="audioMix">Trộn âm thanh</label>
-              <span id="mixValue">85% bản dịch</span>
+              <span id="mixValue">95% bản dịch</span>
             </div>
             <input
               id="audioMix"
@@ -90,29 +136,11 @@
               min="0"
               max="100"
               step="1"
-              value="85"
+              value="95"
             />
             <div class="mix-scale" aria-hidden="true">
-              <span id="originalMixLabel">Gốc 15%</span>
-              <span id="translatedMixLabel">Dịch 85%</span>
-            </div>
-          </div>
-
-          <div class="level" aria-label="Mức âm thanh">
-            <div class="field-row">
-              <span class="level-label">Mức âm tab</span>
-              <a href="options.html" id="optionsLink">Cài đặt API key</a>
-            </div>
-            <div
-              class="level-track"
-              role="meter"
-              aria-label="Mức âm thanh tab đang bắt"
-              aria-valuemin="0"
-              aria-valuemax="1"
-              aria-valuenow="0"
-              id="inputMeter"
-            >
-              <div class="level-fill" id="inputMeterFill"></div>
+              <span id="originalMixLabel">Gốc 5%</span>
+              <span id="translatedMixLabel">Dịch 95%</span>
             </div>
           </div>
         </div>
@@ -121,7 +149,7 @@
       <details class="howto">
         <summary>Hướng dẫn</summary>
         <ol>
-          <li>Mở Cài đặt extension và nhập Gemini API key</li>
+          <li>Mở <strong>Cài đặt</strong> bên dưới, dán Gemini API key rồi bấm Lưu key</li>
           <li>Mở tab http(s) đang phát âm thanh sự kiện</li>
           <li>Bấm icon extension trên tab đó</li>
           <li>Nhấn <strong>Bắt đầu dịch</strong></li>

@@ -1,6 +1,7 @@
 import { buildAudioMixState } from "./lib/audio-mix.js";
 import {
   DEFAULT_TRANSLATED_MIX,
+  GEMINI_API_KEY_STORAGE_KEY,
   MessageType,
 } from "./lib/messages.js";
 
@@ -17,15 +18,52 @@ const inputMeter = document.querySelector("#inputMeter");
 const inputMeterFill = document.querySelector("#inputMeterFill");
 const originalTranscript = document.querySelector("#originalTranscript");
 const translatedTranscript = document.querySelector("#translatedTranscript");
-const optionsLink = document.querySelector("#optionsLink");
+const geminiApiKeyInput = document.querySelector("#geminiApiKey");
+const saveApiKeyButton = document.querySelector("#saveApiKeyButton");
+const clearApiKeyButton = document.querySelector("#clearApiKeyButton");
+const cancelApiKeyButton = document.querySelector("#cancelApiKeyButton");
+const editApiKeyButton = document.querySelector("#editApiKeyButton");
+const apiKeyStatus = document.querySelector("#apiKeyStatus");
+const apiKeySummary = document.querySelector("#apiKeySummary");
+const apiKeySummaryText = document.querySelector("#apiKeySummaryText");
+const apiKeyEditor = document.querySelector("#apiKeyEditor");
+const apiKeyField = document.querySelector("#apiKeyField");
 
 let running = false;
+let hasSavedApiKey = false;
 
 applyAudioMixLabels(audioMix.value);
+void restoreApiKey();
 
-optionsLink?.addEventListener("click", (event) => {
-  event.preventDefault();
-  void chrome.runtime.openOptionsPage();
+saveApiKeyButton?.addEventListener("click", () => {
+  void saveApiKey();
+});
+
+clearApiKeyButton?.addEventListener("click", () => {
+  void clearApiKey();
+});
+
+cancelApiKeyButton?.addEventListener("click", () => {
+  if (hasSavedApiKey) {
+    setApiKeyEditing(false);
+    setApiKeyStatus("");
+  }
+});
+
+editApiKeyButton?.addEventListener("click", () => {
+  setApiKeyEditing(true);
+  geminiApiKeyInput?.focus();
+  geminiApiKeyInput?.select();
+});
+
+geminiApiKeyInput?.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    void saveApiKey();
+  }
+  if (event.key === "Escape" && hasSavedApiKey) {
+    setApiKeyEditing(false);
+  }
 });
 
 audioMix.addEventListener("input", () => {
@@ -112,6 +150,73 @@ chrome.runtime.onMessage.addListener((message) => {
 });
 
 void restoreState();
+
+async function restoreApiKey() {
+  if (!geminiApiKeyInput) {
+    return;
+  }
+  const stored = await chrome.storage.local.get({
+    [GEMINI_API_KEY_STORAGE_KEY]: "",
+  });
+  const key = String(stored[GEMINI_API_KEY_STORAGE_KEY] ?? "").trim();
+  geminiApiKeyInput.value = key;
+  hasSavedApiKey = Boolean(key);
+  setApiKeyEditing(!hasSavedApiKey);
+  setApiKeyStatus(hasSavedApiKey ? "" : "Chưa có API key — dán key rồi bấm Lưu.");
+}
+
+async function saveApiKey() {
+  if (!geminiApiKeyInput) {
+    return;
+  }
+  const geminiApiKey = String(geminiApiKeyInput.value ?? "").trim();
+  if (!geminiApiKey) {
+    setApiKeyStatus("Nhập Gemini API key trước khi lưu.");
+    return;
+  }
+  await chrome.storage.local.set({
+    [GEMINI_API_KEY_STORAGE_KEY]: geminiApiKey,
+  });
+  geminiApiKeyInput.value = geminiApiKey;
+  hasSavedApiKey = true;
+  setApiKeyEditing(false);
+  setApiKeyStatus("");
+}
+
+async function clearApiKey() {
+  await chrome.storage.local.remove(GEMINI_API_KEY_STORAGE_KEY);
+  if (geminiApiKeyInput) {
+    geminiApiKeyInput.value = "";
+  }
+  hasSavedApiKey = false;
+  setApiKeyEditing(true);
+  setApiKeyStatus("Đã xóa API key.");
+}
+
+function setApiKeyEditing(editing) {
+  const showEditor = Boolean(editing) || !hasSavedApiKey;
+  if (apiKeyEditor) {
+    apiKeyEditor.hidden = !showEditor;
+  }
+  if (apiKeySummary) {
+    apiKeySummary.hidden = showEditor;
+  }
+  if (cancelApiKeyButton) {
+    cancelApiKeyButton.hidden = !hasSavedApiKey;
+  }
+  apiKeyField?.classList.toggle("is-editing", showEditor);
+  apiKeyField?.classList.toggle("has-key", hasSavedApiKey);
+  if (!showEditor && apiKeySummaryText) {
+    apiKeySummaryText.textContent = "API key đã lưu";
+  }
+}
+
+function setApiKeyStatus(message) {
+  if (apiKeyStatus) {
+    apiKeyStatus.textContent = message;
+    apiKeyStatus.hidden = !message;
+  }
+}
 
 async function restoreState() {
   try {

@@ -48,14 +48,14 @@
       <header class="drag-handle" title="Kéo để di chuyển">
         <div class="title-wrap">
           <strong>Dịch sự kiện trực tiếp</strong>
-          <span class="status">
+          <span class="status-chip">
             <i class="dot" id="statusDot"></i>
             <span id="statusText">Đã dừng</span>
           </span>
         </div>
         <div class="header-actions">
-          <button type="button" class="icon-btn" id="minimizeButton" title="Thu gọn">–</button>
-          <button type="button" class="icon-btn" id="closeButton" title="Ẩn">✕</button>
+          <button type="button" class="icon-btn" id="minimizeButton" title="Thu gọn" aria-label="Thu gọn">–</button>
+          <button type="button" class="icon-btn" id="closeButton" title="Ẩn" aria-label="Ẩn">✕</button>
         </div>
       </header>
 
@@ -67,21 +67,27 @@
 
         <div class="transcripts">
           <div class="transcript-block">
-            <div class="row"><span class="label">Tiếng gốc</span></div>
+            <div class="row transcript-head">
+              <span class="label">Tiếng gốc</span>
+              <div
+                class="level-track inline-meter"
+                id="inputMeter"
+                role="meter"
+                aria-label="Mức âm tab"
+                aria-valuemin="0"
+                aria-valuemax="1"
+                aria-valuenow="0"
+                title="Mức âm tab"
+              >
+                <div class="level-fill" id="inputMeterFill"></div>
+              </div>
+            </div>
             <div class="transcript" id="originalTranscript" data-empty="Các câu gốc gần nhất sẽ hiện tại đây."></div>
           </div>
           <div class="transcript-block">
-            <div class="row"><span class="label">Bản dịch</span></div>
-            <div class="transcript" id="translatedTranscript" data-empty="Các câu dịch gần nhất sẽ hiện tại đây."></div>
-          </div>
-        </div>
-
-        <details class="settings">
-          <summary>Cài đặt</summary>
-          <div class="settings-body">
-            <div class="field">
-              <label for="targetLanguage">Ngôn ngữ đích</label>
-              <select id="targetLanguage">
+            <div class="row transcript-head">
+              <span class="label">Bản dịch</span>
+              <select id="targetLanguage" aria-label="Ngôn ngữ đích" title="Ngôn ngữ đích">
                 <option value="vi" selected>Tiếng Việt</option>
                 <option value="en">Tiếng Anh</option>
                 <option value="es">Tiếng Tây Ban Nha</option>
@@ -97,34 +103,59 @@
                 <option value="it">Tiếng Ý</option>
               </select>
             </div>
+            <div class="transcript" id="translatedTranscript" data-empty="Các câu dịch gần nhất sẽ hiện tại đây."></div>
+          </div>
+        </div>
+
+        <details class="settings" id="settingsPanel">
+          <summary>Cài đặt</summary>
+          <div class="settings-body">
+            <div class="field api-key-field is-editing" id="apiKeyField">
+              <div class="api-key-summary" id="apiKeySummary" hidden>
+                <span class="api-key-ok" aria-hidden="true"></span>
+                <span class="label" id="apiKeySummaryText">API key đã lưu</span>
+                <button type="button" class="text-btn" id="editApiKeyButton">Sửa</button>
+              </div>
+              <div class="api-key-editor" id="apiKeyEditor">
+                <label for="geminiApiKey">Gemini API key</label>
+                <input
+                  id="geminiApiKey"
+                  type="password"
+                  placeholder="Dán API key…"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+                <div class="key-actions">
+                  <button type="button" id="saveApiKeyButton">Lưu</button>
+                  <button type="button" class="secondary" id="cancelApiKeyButton">Hủy</button>
+                  <button type="button" class="secondary" id="clearApiKeyButton">Xóa</button>
+                </div>
+                <p class="hint" id="apiKeyStatus"></p>
+                <p class="hint">
+                  Lấy key tại
+                  <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">Google AI Studio</a>.
+                </p>
+              </div>
+            </div>
 
             <div class="field">
               <div class="row">
                 <label for="audioMix">Trộn âm thanh</label>
-                <span id="mixValue">85% bản dịch</span>
+                <span class="value" id="mixValue">95% bản dịch</span>
               </div>
-              <input id="audioMix" type="range" min="0" max="100" step="1" value="85" />
+              <input id="audioMix" type="range" min="0" max="100" step="1" value="95" />
               <div class="row muted">
-                <span id="originalMixLabel">Gốc 15%</span>
-                <span id="translatedMixLabel">Dịch 85%</span>
+                <span id="originalMixLabel">Gốc 5%</span>
+                <span id="translatedMixLabel">Dịch 95%</span>
               </div>
             </div>
 
             <div class="field">
               <div class="row">
                 <label for="opacityRange">Độ trong suốt</label>
-                <span id="opacityValue">0%</span>
+                <span class="value" id="opacityValue">5%</span>
               </div>
-              <input id="opacityRange" type="range" min="0" max="70" step="1" value="0" />
-            </div>
-
-            <div class="field">
-              <div class="row">
-                <span class="label">Mức âm tab</span>
-              </div>
-              <div class="level-track" id="inputMeter" role="meter" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0">
-                <div class="level-fill" id="inputMeterFill"></div>
-              </div>
+              <input id="opacityRange" type="range" min="0" max="70" step="1" value="5" />
             </div>
           </div>
         </details>
@@ -154,10 +185,56 @@
   const originalTranscript = shadow.querySelector("#originalTranscript");
   const translatedTranscript = shadow.querySelector("#translatedTranscript");
   const resizeHandle = shadow.querySelector("#resizeHandle");
+  const geminiApiKeyInput = shadow.querySelector("#geminiApiKey");
+  const saveApiKeyButton = shadow.querySelector("#saveApiKeyButton");
+  const clearApiKeyButton = shadow.querySelector("#clearApiKeyButton");
+  const cancelApiKeyButton = shadow.querySelector("#cancelApiKeyButton");
+  const editApiKeyButton = shadow.querySelector("#editApiKeyButton");
+  const apiKeyStatus = shadow.querySelector("#apiKeyStatus");
+  const apiKeySummary = shadow.querySelector("#apiKeySummary");
+  const apiKeySummaryText = shadow.querySelector("#apiKeySummaryText");
+  const apiKeyEditor = shadow.querySelector("#apiKeyEditor");
+  const apiKeyField = shadow.querySelector("#apiKeyField");
+  const settingsPanel = shadow.querySelector("#settingsPanel");
+  const GEMINI_API_KEY_STORAGE_KEY = "geminiApiKey";
+  let hasSavedApiKey = false;
 
   applyMixLabels(audioMix.value);
+  void restoreApiKey();
   void restoreUiPrefs();
   void restoreState();
+
+  saveApiKeyButton.addEventListener("click", () => {
+    void saveApiKey();
+  });
+
+  clearApiKeyButton.addEventListener("click", () => {
+    void clearApiKey();
+  });
+
+  cancelApiKeyButton.addEventListener("click", () => {
+    if (hasSavedApiKey) {
+      setApiKeyEditing(false);
+      setApiKeyStatus("");
+    }
+  });
+
+  editApiKeyButton.addEventListener("click", () => {
+    setApiKeyEditing(true);
+    settingsPanel.open = true;
+    geminiApiKeyInput.focus();
+    geminiApiKeyInput.select();
+  });
+
+  geminiApiKeyInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      void saveApiKey();
+    }
+    if (event.key === "Escape" && hasSavedApiKey) {
+      setApiKeyEditing(false);
+    }
+  });
 
   audioMix.addEventListener("input", () => {
     applyMixLabels(audioMix.value);
@@ -362,17 +439,86 @@
     host.style.display = "block";
   }
 
+  async function restoreApiKey() {
+    try {
+      const stored = await chrome.storage.local.get({
+        [GEMINI_API_KEY_STORAGE_KEY]: "",
+      });
+      const key = String(stored[GEMINI_API_KEY_STORAGE_KEY] ?? "").trim();
+      geminiApiKeyInput.value = key;
+      hasSavedApiKey = Boolean(key);
+      setApiKeyEditing(!hasSavedApiKey);
+      settingsPanel.open = !hasSavedApiKey;
+      setApiKeyStatus(hasSavedApiKey ? "" : "Chưa có API key — dán key rồi bấm Lưu.");
+    } catch {
+      hasSavedApiKey = false;
+      setApiKeyEditing(true);
+      settingsPanel.open = true;
+      setApiKeyStatus("Không đọc được API key đã lưu.");
+    }
+  }
+
+  async function saveApiKey() {
+    const geminiApiKey = String(geminiApiKeyInput.value ?? "").trim();
+    if (!geminiApiKey) {
+      setApiKeyStatus("Nhập Gemini API key trước khi lưu.");
+      return;
+    }
+    try {
+      await chrome.storage.local.set({
+        [GEMINI_API_KEY_STORAGE_KEY]: geminiApiKey,
+      });
+      geminiApiKeyInput.value = geminiApiKey;
+      hasSavedApiKey = true;
+      setApiKeyEditing(false);
+      setApiKeyStatus("");
+    } catch {
+      setApiKeyStatus("Không lưu được API key.");
+    }
+  }
+
+  async function clearApiKey() {
+    try {
+      await chrome.storage.local.remove(GEMINI_API_KEY_STORAGE_KEY);
+      geminiApiKeyInput.value = "";
+      hasSavedApiKey = false;
+      setApiKeyEditing(true);
+      settingsPanel.open = true;
+      setApiKeyStatus("Đã xóa API key.");
+    } catch {
+      setApiKeyStatus("Không xóa được API key.");
+    }
+  }
+
+  function setApiKeyEditing(editing) {
+    const showEditor = Boolean(editing) || !hasSavedApiKey;
+    apiKeyEditor.hidden = !showEditor;
+    apiKeySummary.hidden = showEditor;
+    cancelApiKeyButton.hidden = !hasSavedApiKey;
+    apiKeyField?.classList.toggle("is-editing", showEditor);
+    apiKeyField?.classList.toggle("has-key", hasSavedApiKey);
+    if (!showEditor) {
+      apiKeySummaryText.textContent = "API key đã lưu";
+    }
+  }
+
+  function setApiKeyStatus(message) {
+    apiKeyStatus.textContent = message;
+    apiKeyStatus.hidden = !message;
+  }
+
   async function restoreUiPrefs() {
     try {
       const prefs = await chrome.storage.local.get({
-        overlayOpacity: 0,
+        overlayOpacity: 5,
         overlayLeft: null,
         overlayTop: null,
         overlayWidth: DEFAULT_WIDTH,
         overlayHeight: null,
       });
-      applyOpacity(Number(prefs.overlayOpacity) || 0);
-      opacityRange.value = String(Number(prefs.overlayOpacity) || 0);
+      const opacity = Number(prefs.overlayOpacity);
+      applyOpacity(Number.isFinite(opacity) ? opacity : 5);
+      opacityRange.value = String(Number.isFinite(opacity) ? opacity : 5);
       if (prefs.overlayLeft != null && prefs.overlayTop != null) {
         host.style.left = `${prefs.overlayLeft}px`;
         host.style.top = `${prefs.overlayTop}px`;
@@ -448,7 +594,7 @@
   }
 
   function applyMixLabels(value) {
-    const translated = clamp(Number.parseInt(String(value), 10) || 85, 0, 100);
+    const translated = clamp(Number.parseInt(String(value), 10) || 95, 0, 100);
     const original = 100 - translated;
     mixValue.textContent = `${translated}% bản dịch`;
     originalMixLabel.textContent = `Gốc ${original}%`;
@@ -476,6 +622,7 @@
       state === "error" ? " error" : ""
     }`;
     widget.classList.toggle("is-error", state === "error");
+    widget.classList.toggle("is-live", state === "live");
   }
 
   function setInputLevel(value) {
@@ -520,6 +667,18 @@
       * { box-sizing: border-box; }
       .widget {
         --panel-alpha: 1;
+        --bg: 26 29 33;
+        --bg-2: 21 24 28;
+        --bg-3: 18 20 23;
+        --border: 42 47 54;
+        --text: #e8eaed;
+        --muted: #a8b0ba;
+        --faint: #7b8490;
+        --accent: #3d9a8b;
+        --accent-soft: #48a996;
+        --ok: #5fad7a;
+        --danger: #d46b6b;
+        --radius: 8px;
         position: relative;
         display: flex;
         flex-direction: column;
@@ -528,81 +687,91 @@
         font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
         font-size: 13px;
         line-height: 1.45;
-        color: #e8eaed;
-        background: rgb(26 29 33 / var(--panel-alpha));
-        border: 1px solid rgb(42 47 54 / var(--panel-alpha));
-        border-radius: 8px;
-        box-shadow: 0 12px 40px rgb(0 0 0 / calc(0.35 * var(--panel-alpha)));
+        color: var(--text);
+        background: rgb(var(--bg) / var(--panel-alpha));
+        border: 1px solid rgb(var(--border) / var(--panel-alpha));
+        border-radius: var(--radius);
+        box-shadow: 0 12px 36px rgb(0 0 0 / calc(0.32 * var(--panel-alpha)));
         overflow: hidden;
         user-select: none;
       }
-      .widget.sized {
-        height: 100%;
-      }
+      .widget.sized { height: 100%; }
       .widget.dragging {
-        box-shadow: 0 16px 48px rgb(0 0 0 / calc(0.45 * var(--panel-alpha)));
+        box-shadow: 0 16px 44px rgb(0 0 0 / calc(0.42 * var(--panel-alpha)));
       }
-      .widget.resizing {
-        user-select: none;
-      }
+      .widget.resizing { user-select: none; }
       .drag-handle {
         display: flex;
-        align-items: flex-start;
+        align-items: center;
         justify-content: space-between;
-        gap: 8px;
+        gap: 10px;
         flex: 0 0 auto;
         padding: 10px 10px 10px 12px;
-        background: rgb(21 24 28 / var(--panel-alpha));
-        border-bottom: 1px solid rgb(42 47 54 / var(--panel-alpha));
+        background: rgb(var(--bg-2) / var(--panel-alpha));
+        border-bottom: 1px solid rgb(var(--border) / var(--panel-alpha));
         cursor: grab;
       }
       .widget.dragging .drag-handle { cursor: grabbing; }
       .title-wrap {
-        display: grid;
-        gap: 6px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
         min-width: 0;
+        flex: 1 1 auto;
       }
       .title-wrap strong {
+        flex: 0 1 auto;
         font-size: 13px;
         font-weight: 600;
-        color: #e8eaed;
+        color: var(--text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
-      .status {
+      .status-chip {
         display: inline-flex;
         align-items: center;
         gap: 6px;
         min-width: 0;
-        color: #a8b0ba;
-        font-size: 12px;
+        max-width: 46%;
+        padding: 3px 8px;
+        border: 1px solid rgb(var(--border) / var(--panel-alpha));
+        border-radius: 999px;
+        background: rgb(var(--bg-3) / calc(0.7 * var(--panel-alpha)));
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 500;
       }
-      .status span {
+      .status-chip span {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
       }
       .dot {
         display: inline-block;
-        width: 7px;
-        height: 7px;
+        width: 6px;
+        height: 6px;
         border-radius: 50%;
-        background: #7b8490;
+        background: var(--faint);
         flex: 0 0 auto;
       }
-      .dot.live { background: #5fad7a; }
-      .dot.error { background: #d46b6b; }
-      .header-actions { display: flex; gap: 4px; }
+      .dot.live { background: var(--ok); box-shadow: 0 0 0 3px rgb(95 173 122 / 0.18); }
+      .dot.error { background: var(--danger); }
+      .widget.is-live .status-chip { color: #c8e6d1; border-color: rgb(95 173 122 / 0.35); }
+      .widget.is-error .status-chip { color: #e8b4b4; border-color: rgb(212 107 107 / 0.4); }
+      .header-actions { display: flex; gap: 4px; flex: 0 0 auto; }
       .icon-btn {
         width: 28px;
         height: 28px;
-        border: 1px solid rgb(42 47 54 / var(--panel-alpha));
+        border: 1px solid rgb(var(--border) / var(--panel-alpha));
         border-radius: 6px;
         background: transparent;
-        color: #a8b0ba;
+        color: var(--muted);
         cursor: pointer;
         font-size: 14px;
         line-height: 1;
       }
-      .icon-btn:hover { background: rgb(26 29 33 / var(--panel-alpha)); color: #e8eaed; }
+      .icon-btn:hover { background: rgb(var(--bg) / var(--panel-alpha)); color: var(--text); }
       .body {
         display: grid;
         gap: 10px;
@@ -623,25 +792,149 @@
         justify-content: space-between;
         gap: 8px;
       }
-      .row.muted, .muted { color: #7b8490; font-size: 11px; }
+      .transcript-head {
+        gap: 10px;
+        min-height: 28px;
+      }
+      .transcript-head .label {
+        flex: 0 0 auto;
+      }
+      .transcript-head .inline-meter {
+        flex: 1 1 auto;
+        max-width: 140px;
+        margin-left: auto;
+      }
+      .transcript-head select {
+        flex: 0 1 auto;
+        width: auto;
+        min-width: 118px;
+        max-width: 58%;
+        height: 28px;
+        padding: 0 24px 0 8px;
+        font-size: 12px;
+        appearance: none;
+        background-image:
+          linear-gradient(45deg, transparent 50%, var(--faint) 50%),
+          linear-gradient(135deg, var(--faint) 50%, transparent 50%);
+        background-position:
+          calc(100% - 12px) calc(50% - 2px),
+          calc(100% - 7px) calc(50% - 2px);
+        background-size: 5px 5px;
+        background-repeat: no-repeat;
+      }
+      .row.muted, .muted { color: var(--faint); font-size: 11px; }
+      .value {
+        color: var(--text);
+        font-size: 12px;
+        font-weight: 500;
+        font-variant-numeric: tabular-nums;
+      }
       label, .label {
-        color: #a8b0ba;
+        color: var(--muted);
         font-size: 12px;
         font-weight: 500;
       }
-      select, button, input[type="range"], summary { font: inherit; }
-      select {
+      select, button, input[type="range"], input[type="password"], summary { font: inherit; }
+      select,
+      input[type="password"] {
         width: 100%;
         height: 34px;
         padding: 0 10px;
-        border: 1px solid rgb(42 47 54 / var(--panel-alpha));
+        border: 1px solid rgb(var(--border) / var(--panel-alpha));
         border-radius: 6px;
-        background: rgb(18 20 23 / var(--panel-alpha));
-        color: #e8eaed;
+        background: rgb(var(--bg-3) / var(--panel-alpha));
+        color: var(--text);
       }
+      select:focus-visible,
+      input[type="password"]:focus-visible,
+      button:focus-visible,
+      summary:focus-visible,
+      .text-btn:focus-visible {
+        outline: 2px solid rgb(61 154 139 / 0.55);
+        outline-offset: 1px;
+      }
+      .api-key-summary {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 28px;
+        padding: 6px 8px;
+        border: 1px solid rgb(95 173 122 / 0.28);
+        border-radius: 6px;
+        background: rgb(95 173 122 / 0.08);
+      }
+      .api-key-summary[hidden],
+      .api-key-editor[hidden],
+      .hint[hidden],
+      button[hidden] {
+        display: none !important;
+      }
+      .api-key-field:not(.is-editing) .api-key-editor {
+        display: none !important;
+      }
+      .api-key-field.is-editing .api-key-summary,
+      .api-key-field:not(.has-key) .api-key-summary {
+        display: none !important;
+      }
+      .api-key-summary .label {
+        flex: 1 1 auto;
+        color: #c8e6d1;
+        min-width: 0;
+      }
+      .api-key-ok {
+        flex: 0 0 auto;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: rgb(95 173 122 / 0.2);
+        position: relative;
+      }
+      .api-key-ok::after {
+        content: "";
+        position: absolute;
+        left: 4px;
+        top: 2.5px;
+        width: 4px;
+        height: 7px;
+        border: solid var(--ok);
+        border-width: 0 1.5px 1.5px 0;
+        transform: rotate(45deg);
+      }
+      .api-key-editor { display: grid; gap: 6px; }
+      .key-actions {
+        display: flex;
+        gap: 6px;
+      }
+      .key-actions button:first-child { flex: 1 1 auto; }
+      .key-actions button.secondary {
+        flex: 0 0 auto;
+        min-width: 52px;
+      }
+      .text-btn {
+        flex: 0 0 auto;
+        height: auto;
+        padding: 0;
+        border: none;
+        background: transparent;
+        color: var(--accent-soft);
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .text-btn:hover { color: var(--text); text-decoration: underline; }
+      .hint {
+        margin: 0;
+        color: var(--faint);
+        font-size: 11px;
+      }
+      .hint a {
+        color: var(--accent-soft);
+        text-decoration: none;
+      }
+      .hint a:hover { text-decoration: underline; }
       input[type="range"] {
         width: 100%;
-        height: 20px;
+        height: 18px;
         margin: 0;
         appearance: none;
         background: transparent;
@@ -658,7 +951,7 @@
         margin-top: -5px;
         border: 1px solid #3a414b;
         border-radius: 50%;
-        background: #e8eaed;
+        background: var(--text);
         cursor: pointer;
       }
       .actions {
@@ -670,32 +963,44 @@
         height: 34px;
         border: 1px solid transparent;
         border-radius: 6px;
-        background: #3d9a8b;
+        background: var(--accent);
         color: #041512;
         cursor: pointer;
         font-weight: 600;
       }
+      button:hover:not(:disabled) { filter: brightness(1.06); }
       button.secondary {
-        border-color: rgb(42 47 54 / var(--panel-alpha));
+        border-color: rgb(var(--border) / var(--panel-alpha));
         background: transparent;
-        color: #a8b0ba;
+        color: var(--muted);
+        filter: none;
+      }
+      button.secondary:hover:not(:disabled) {
+        background: rgb(var(--bg-2) / var(--panel-alpha));
+        color: var(--text);
       }
       button:disabled {
-        border-color: rgb(42 47 54 / var(--panel-alpha));
-        background: rgb(21 24 28 / var(--panel-alpha));
-        color: #7b8490;
+        border-color: rgb(var(--border) / var(--panel-alpha));
+        background: rgb(var(--bg-2) / var(--panel-alpha));
+        color: var(--faint);
         cursor: not-allowed;
+        filter: none;
       }
       .level-track {
         height: 4px;
         overflow: hidden;
         border-radius: 2px;
-        background: rgb(42 47 54 / var(--panel-alpha));
+        background: rgb(var(--border) / var(--panel-alpha));
+      }
+      .inline-meter {
+        height: 5px;
+        align-self: center;
       }
       .level-fill {
         width: 0%;
         height: 100%;
-        background: #3d9a8b;
+        background: var(--accent);
+        transition: width 80ms linear;
       }
       .transcripts { display: grid; gap: 10px; min-height: 0; }
       .widget.sized .transcripts {
@@ -703,7 +1008,7 @@
         height: 100%;
         overflow: hidden;
       }
-      .transcript-block { display: grid; gap: 6px; min-height: 0; }
+      .transcript-block { display: grid; gap: 5px; min-height: 0; }
       .widget.sized .transcript-block {
         grid-template-rows: auto minmax(0, 1fr);
       }
@@ -712,11 +1017,10 @@
         max-height: 28vh;
         overflow: auto;
         padding: 10px;
-        border: 1px solid rgb(42 47 54 / max(0.75, var(--panel-alpha)));
+        border: 1px solid rgb(var(--border) / max(0.75, var(--panel-alpha)));
         border-radius: 6px;
-        /* Nền khung phụ đề giữ độ đậm tối thiểu để chữ luôn dễ đọc */
-        background: rgb(18 20 23 / max(0.88, var(--panel-alpha)));
-        color: #e8eaed;
+        background: rgb(var(--bg-3) / max(0.88, var(--panel-alpha)));
+        color: var(--text);
         white-space: pre-wrap;
         overflow-wrap: anywhere;
         user-select: text;
@@ -729,31 +1033,31 @@
       }
       .transcript:empty::before {
         content: attr(data-empty);
-        color: #7b8490;
+        color: var(--faint);
       }
       .settings {
-        border-top: 1px solid rgb(42 47 54 / var(--panel-alpha));
-        padding-top: 4px;
+        border-top: 1px solid rgb(var(--border) / var(--panel-alpha));
+        padding-top: 2px;
       }
       .settings summary {
         cursor: pointer;
         list-style: none;
-        color: #a8b0ba;
+        color: var(--muted);
         font-size: 12px;
         font-weight: 500;
-        padding: 4px 0;
+        padding: 6px 0;
         user-select: none;
       }
       .settings summary::-webkit-details-marker { display: none; }
       .settings summary::before {
         content: "▸ ";
-        color: #7b8490;
+        color: var(--faint);
       }
       .settings[open] summary::before { content: "▾ "; }
       .settings-body {
         display: grid;
-        gap: 10px;
-        padding: 6px 0 2px;
+        gap: 12px;
+        padding: 2px 0 4px;
       }
       .resize-handle {
         position: absolute;
@@ -772,18 +1076,15 @@
         bottom: 4px;
         width: 9px;
         height: 9px;
-        border-right: 2px solid #7b8490;
-        border-bottom: 2px solid #7b8490;
+        border-right: 2px solid var(--faint);
+        border-bottom: 2px solid var(--faint);
         opacity: 0.85;
       }
       .resize-handle:hover::before,
       .widget.resizing .resize-handle::before {
-        border-color: #a8b0ba;
+        border-color: var(--muted);
       }
-      .widget.collapsed .resize-handle {
-        display: none;
-      }
-      .widget.is-error .status { color: #e8b4b4; }
+      .widget.collapsed .resize-handle { display: none; }
     `;
   }
 })();
