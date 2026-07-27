@@ -29,11 +29,11 @@ test("takeCompletedBatch returns null until batch size is reached", async () => 
 
 test("takeCompletedBatch splits completed prefix and leaves trailing fragment", async () => {
   const { takeCompletedBatch } = await importPolishText();
-  const sentences = Array.from({ length: 18 }, (_, i) => `Câu ${i + 1}.`);
+  const sentences = Array.from({ length: 5 }, (_, i) => `Câu ${i + 1}.`);
   const pending = `${sentences.join(" ")} và đoạn chưa hết`;
-  const result = takeCompletedBatch(pending, 18);
+  const result = takeCompletedBatch(pending, 5);
   assert.ok(result);
-  assert.match(result.batchText, /Câu 18\./);
+  assert.match(result.batchText, /Câu 5\./);
   assert.equal(result.rest, "và đoạn chưa hết");
   assert.equal(result.batchText.includes("và đoạn chưa hết"), false);
 });
@@ -50,11 +50,58 @@ test("takeAllCompletedAndRest flushes leftover text on stop", async () => {
   });
 });
 
-test("buildPolishPrompt asks for clean edit only", async () => {
-  const { buildPolishPrompt } = await importPolishText();
-  const prompt = buildPolishPrompt("Hello. World.");
-  assert.match(prompt, /không/i);
+test("buildPolishPrompt uses the target translation language", async () => {
+  const { buildPolishPrompt, resolvePolishLanguageName } = await importPolishText();
+  assert.equal(resolvePolishLanguageName("ja"), "Japanese");
+  assert.equal(resolvePolishLanguageName("zh-Hans"), "Chinese");
+  const prompt = buildPolishPrompt("Hello. World.", "en");
+  assert.match(prompt, /English/i);
+  assert.match(prompt, /do not translate/i);
+  assert.match(prompt, /blank line/i);
   assert.match(prompt, /Hello\. World\./);
+  assert.match(buildPolishPrompt("Xin chào.", "vi"), /Vietnamese/i);
+  assert.match(
+    buildPolishPrompt("Old.\n\nNew.", "en", { hasOverlap: true }),
+    /seamlessly/i,
+  );
+});
+
+test("overlap polish helpers merge adjacent polished paragraph with new batch", async () => {
+  const {
+    buildPolishInputWithOverlap,
+    dropTrailingPolishedParagraphs,
+    mergePolishedResult,
+    takeTrailingPolishedParagraphs,
+  } = await importPolishText();
+
+  const polished = "Đoạn A.\n\nĐoạn B.";
+  assert.equal(takeTrailingPolishedParagraphs(polished), "Đoạn B.");
+  assert.equal(dropTrailingPolishedParagraphs(polished), "Đoạn A.");
+
+  const overlap = buildPolishInputWithOverlap(polished, "Câu mới.");
+  assert.equal(overlap.overlapParagraphs, 1);
+  assert.equal(overlap.polishInput, "Đoạn B.\n\nCâu mới.");
+
+  const merged = mergePolishedResult(
+    polished,
+    "Đoạn B nối mạch.\n\nCâu mới đã sửa.",
+    1,
+  );
+  assert.equal(merged, "Đoạn A.\n\nĐoạn B nối mạch.\n\nCâu mới đã sửa.");
+});
+
+test("normalizePolishedParagraphs and splitDisplayParagraphs keep paragraph breaks", async () => {
+  const { normalizePolishedParagraphs, splitDisplayParagraphs } =
+    await importPolishText();
+  const normalized = normalizePolishedParagraphs(
+    "Đoạn một.\n\n\nĐoạn hai.  \n\n\n\nĐoạn ba.",
+  );
+  assert.equal(normalized, "Đoạn một.\n\nĐoạn hai.\n\nĐoạn ba.");
+  assert.deepEqual(splitDisplayParagraphs(normalized), [
+    "Đoạn một.",
+    "Đoạn hai.",
+    "Đoạn ba.",
+  ]);
 });
 
 test("parseGenerateContentText reads Gemini candidate text", async () => {
@@ -122,8 +169,9 @@ test("isImplausiblePolish rejects empty or truncated cleaned text", async () => 
   assert.equal(isImplausiblePolish("Ok.", "uh ok."), false);
 });
 
-test("joinDisplay concatenates polished and pending", async () => {
+test("joinDisplay concatenates polished and pending as paragraphs", async () => {
   const { joinDisplay } = await importPolishText();
-  assert.equal(joinDisplay("A. ", "B."), "A. B.");
+  assert.equal(joinDisplay("A.\n\nB.", "C."), "A.\n\nB.\n\nC.");
   assert.equal(joinDisplay("A.", ""), "A.");
+  assert.equal(joinDisplay("", "B."), "B.");
 });

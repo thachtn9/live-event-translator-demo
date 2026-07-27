@@ -8,6 +8,8 @@ import {
 export async function polishTranscriptText({
   text,
   apiKey,
+  targetLanguage = "en",
+  hasOverlap = false,
   model = DEFAULT_POLISH_MODEL,
 }) {
   const batch = String(text ?? "").trim();
@@ -15,7 +17,7 @@ export async function polishTranscriptText({
     return "";
   }
   if (!apiKey) {
-    throw new Error("Cần Gemini API key để làm sạch bản dịch.");
+    throw new Error("Cần Gemini API key để chuẩn hóa bản dịch.");
   }
 
   const models = [model, ...POLISH_MODEL_FALLBACKS.filter((item) => item !== model)];
@@ -26,19 +28,23 @@ export async function polishTranscriptText({
       return await generatePolishedText({
         apiKey,
         model: candidate,
-        prompt: buildPolishPrompt(batch),
+        prompt: buildPolishPrompt(batch, targetLanguage, { hasOverlap }),
       });
     } catch (error) {
       lastError = error;
       const message = error instanceof Error ? error.message : String(error);
-      // Try next model on not-found / unsupported; otherwise stop.
-      if (!/not found|404|unsupported|NOT_FOUND/i.test(message)) {
+      // Try next model on not-found / deprecated / unsupported.
+      if (
+        !/not found|404|unsupported|NOT_FOUND|no longer available/i.test(
+          message,
+        )
+      ) {
         throw error;
       }
     }
   }
 
-  throw lastError ?? new Error("Không làm sạch được bản dịch.");
+  throw lastError ?? new Error("Không chuẩn hóa được bản dịch.");
 }
 
 async function generatePolishedText({ apiKey, model, prompt }) {

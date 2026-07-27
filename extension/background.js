@@ -1,16 +1,26 @@
 import {
+  DEFAULT_POLISH_ENABLED,
   DEFAULT_TARGET_LANGUAGE,
   DEFAULT_TRANSLATED_MIX,
   GEMINI_API_KEY_STORAGE_KEY,
   MessageType,
+  POLISH_ENABLED_STORAGE_KEY,
 } from "./lib/messages.js";
 import { polishTranscriptText } from "./lib/polish.js";
+import {
+  appendTranscriptChunk,
+  createTranscriptSession,
+  getTranscriptSnapshot,
+  maybePolishTranscriptSession,
+  resetTranscriptSession,
+} from "./lib/transcript-session.js";
 
 const OFFSCREEN_URL = "offscreen.html";
 const OFFSCREEN_REASONS = ["USER_MEDIA", "AUDIO_PLAYBACK"];
 const OFFSCREEN_JUSTIFICATION =
   "Bắt âm thanh tab đang xem, gửi tới Gemini Live Translate và phát bản dịch.";
 const OFFSCREEN_PING = "OFFSCREEN_PING";
+const TRANSCRIPT_PANEL_PATH = "transcript-panel.html";
 
 let running = false;
 let capturedTabId = null;
@@ -18,6 +28,46 @@ let lastInvokedTabId = null;
 let lastStatus = { message: "Đã dừng", state: "idle" };
 let lastMix = DEFAULT_TRANSLATED_MIX;
 let lastLanguage = DEFAULT_TARGET_LANGUAGE;
+let polishEnabled = DEFAULT_POLISH_ENABLED;
+const transcriptSession = createTranscriptSession();
+
+void chrome.sidePanel
+  .setPanelBehavior({ openPanelOnActionClick: false })
+  .catch(() => {});
+
+void chrome.storage.local
+  .get({ [POLISH_ENABLED_STORAGE_KEY]: DEFAULT_POLISH_ENABLED })
+  .then((stored) => {
+    polishEnabled = stored[POLISH_ENABLED_STORAGE_KEY] !== false;
+  })
+  .catch(() => {});
+
+chrome.runtime.onInstalled.addListener(() => {
+  void chrome.sidePanel
+    .setOptions({
+      path: TRANSCRIPT_PANEL_PATH,
+      enabled: true,
+    })
+    .catch(() => {});
+  void chrome.contextMenus
+    .create({
+      id: "open-transcript-panel",
+      title: "Mở bản dịch đầy đủ",
+      contexts: ["action"],
+    })
+    .catch(() => {});
+});
+
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId !== "open-transcript-panel") {
+    return;
+  }
+  const windowId = tab?.windowId;
+  if (!windowId) {
+    return;
+  }
+  chrome.sidePanel.open({ windowId }).catch(() => {});
+});
 
 // tabCapture cần user bấm icon extension trên tab (activeTab).
 chrome.action.onClicked.addListener((tab) => {
@@ -49,6 +99,51 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     message?.type === MessageType.OVERLAY_PING
   ) {
     return false;
+  }
+
+  // Broadcast for side panel listeners only — ignore in the service worker.
+  if (message?.type === MessageType.FULL_TRANSCRIPT_UPDATE) {
+    return false;
+  }
+
+  // Open synchronously — any await before sidePanel.open() breaks user gesture.
+  if (message?.type === MessageType.OPEN_TRANSCRIPT_PANEL) {
+    const tabId = sender?.tab?.id ?? lastInvokedTabId ?? null;
+    const windowId = sender?.tab?.windowId ?? null;
+
+    if (!windowId && !tabId) {
+      sendResponse({
+        ok: false,
+        error: "Không tìm thấy tab để mở Side Panel.",
+      });
+      return false;
+    }
+
+    let openPromise;
+    try {
+      openPromise = windowId
+        ? chrome.sidePanel.open({ windowId })
+        : chrome.sidePanel.open({ tabId });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      sendResponse({ ok: false, error: errorMessage });
+      return false;
+    }
+
+    openPromise
+      .then(() => {
+        sendResponse({ ok: true, opened: true, tabId, windowId });
+        if (tabId) {
+          void ensureSidePanelEnabled(tabId);
+        }
+      })
+      .catch((error) => {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        sendResponse({ ok: false, error: errorMessage });
+      });
+    return true;
   }
 
   // Pipeline events from offscreen: update state and forward to in-page overlay.
@@ -92,6 +187,17 @@ function applyPipelineEvent(message, sender) {
     };
   }
 
+  if (message.type === MessageType.TRANSCRIPT) {
+    appendTranscriptChunk(transcriptSession, message.text ?? "");
+    broadcastFullTranscript();
+    void polishTranscriptSession(false);
+  }
+
+  if (message.type === MessageType.TRANSCRIPT_CLEAR) {
+    resetTranscriptSession(transcriptSession);
+    broadcastFullTranscript();
+  }
+
   if (message.type === MessageType.STOPPED) {
     running = false;
     capturedTabId = null;
@@ -99,6 +205,7 @@ function applyPipelineEvent(message, sender) {
       message: message.message ?? "Đã dừng",
       state: message.state ?? "idle",
     };
+    void polishTranscriptSession(true);
     if (fromOffscreen) {
       void closeOffscreenDocument().catch(() => {});
     }
@@ -137,16 +244,77 @@ async function handleCommand(message, sender) {
       return setMix(message.value);
     case MessageType.GET_STATE:
       return getState();
+    case MessageType.GET_FULL_TRANSCRIPT:
+      return getTranscriptSnapshot(transcriptSession, { polishEnabled });
+    case MessageType.SET_POLISH_ENABLED:
+      return setPolishEnabled(message.enabled);
     case MessageType.POLISH_TRANSCRIPT: {
       const apiKey = await getGeminiApiKey();
       const text = await polishTranscriptText({
         text: message.text,
         apiKey,
+        targetLanguage: message.targetLanguage ?? lastLanguage,
       });
       return { text };
     }
     default:
       throw new Error(`Unknown message type: ${message?.type ?? "undefined"}`);
+  }
+}
+
+function broadcastFullTranscript() {
+  const snapshot = getTranscriptSnapshot(transcriptSession, { polishEnabled });
+  const message = {
+    type: MessageType.FULL_TRANSCRIPT_UPDATE,
+    ...snapshot,
+  };
+  chrome.runtime.sendMessage(message).catch(() => {
+    // Side panel may be closed.
+  });
+}
+
+async function setPolishEnabled(enabled) {
+  polishEnabled = enabled !== false;
+  try {
+    await chrome.storage.local.set({
+      [POLISH_ENABLED_STORAGE_KEY]: polishEnabled,
+    });
+  } catch {
+    // Ignore storage failures; in-memory flag still applies.
+  }
+  broadcastFullTranscript();
+  if (polishEnabled) {
+    void polishTranscriptSession(false);
+  }
+  return { polishEnabled };
+}
+
+async function polishTranscriptSession(forceAll = false) {
+  if (!polishEnabled) {
+    broadcastFullTranscript();
+    return;
+  }
+  await maybePolishTranscriptSession(transcriptSession, {
+    forceAll,
+    getApiKey: getGeminiApiKey,
+    onChange: broadcastFullTranscript,
+    targetLanguage: lastLanguage,
+  });
+  broadcastFullTranscript();
+}
+
+async function ensureSidePanelEnabled(tabId) {
+  if (!tabId) {
+    return;
+  }
+  try {
+    await chrome.sidePanel.setOptions({
+      tabId,
+      path: TRANSCRIPT_PANEL_PATH,
+      enabled: true,
+    });
+  } catch {
+    // Tab may have closed.
   }
 }
 
@@ -206,6 +374,8 @@ async function startTranslation({
   lastLanguage = targetLanguage;
   lastMix = Number(mix);
   lastStatus = { message: "Đang bắt âm thanh", state: "idle" };
+  resetTranscriptSession(transcriptSession);
+  broadcastFullTranscript();
 
   try {
     const response = await chrome.runtime.sendMessage({
@@ -389,6 +559,7 @@ async function openOverlayOnTab(tab) {
       type: MessageType.OVERLAY_PING,
     });
     if (ping?.ok) {
+      await ensureSidePanelEnabled(tab.id);
       return;
     }
   } catch {
@@ -399,4 +570,5 @@ async function openOverlayOnTab(tab) {
     target: { tabId: tab.id },
     files: ["content/overlay.js"],
   });
+  await ensureSidePanelEnabled(tab.id);
 }

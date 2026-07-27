@@ -3,68 +3,28 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 
 const OVERLAY_PATH = new URL("../extension/content/overlay.js", import.meta.url);
-const LIB_PATH = new URL("../extension/lib/polish-text.js", import.meta.url);
+const BACKGROUND_PATH = new URL("../extension/background.js", import.meta.url);
+const MANIFEST_PATH = new URL("../extension/manifest.json", import.meta.url);
 
-// overlay.js là classic script nên phải chép tay các helper từ lib; test này
-// bắt lỗi lệch bản sao.
-const MIRRORED = [
-  "countCompletedSentences",
-  "isPolishCooldownActive",
-  "isImplausiblePolish",
-];
-
-function extractFunction(source, name) {
-  const start = source.indexOf(`function ${name}(`);
-  assert.notEqual(start, -1, `không tìm thấy function ${name}`);
-  const bodyStart = source.indexOf("{", start);
-  let depth = 0;
-  for (let i = bodyStart; i < source.length; i += 1) {
-    if (source[i] === "{") depth += 1;
-    if (source[i] === "}") {
-      depth -= 1;
-      if (depth === 0) {
-        return normalize(source.slice(start, i + 1));
-      }
-    }
-  }
-  throw new Error(`function ${name} không đóng ngoặc`);
-}
-
-function normalize(text) {
-  return text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith("//"))
-    .join("\n");
-}
-
-test("overlay inline helpers match extension/lib/polish-text.js", async () => {
-  const [overlaySource, libSource] = await Promise.all([
-    readFile(OVERLAY_PATH, "utf8"),
-    readFile(LIB_PATH, "utf8"),
-  ]);
-
-  for (const name of MIRRORED) {
-    assert.equal(
-      extractFunction(overlaySource, name),
-      extractFunction(libSource, name),
-      `bản sao ${name} trong overlay.js đã lệch so với lib`,
-    );
-  }
+test("overlay opens Chrome Side Panel instead of floating full panel", async () => {
+  const overlaySource = await readFile(OVERLAY_PATH, "utf8");
+  assert.match(overlaySource, /OPEN_TRANSCRIPT_PANEL/);
+  assert.match(overlaySource, /removeLegacyFullPanelHost/);
+  assert.doesNotMatch(overlaySource, /fullPanelHost/);
+  assert.doesNotMatch(overlaySource, /function maybePolishBatch/);
 });
 
-test("overlay constants match polish-text constants", async () => {
-  const overlaySource = await readFile(OVERLAY_PATH, "utf8");
-  const lib = await import("../extension/lib/polish-text.js");
-  const pairs = [
-    ["POLISH_BATCH_SIZE", lib.POLISH_BATCH_SIZE],
-    ["POLISH_FAILURE_COOLDOWN_MS", lib.POLISH_FAILURE_COOLDOWN_MS],
-    ["MIN_POLISH_LENGTH_RATIO", lib.MIN_POLISH_LENGTH_RATIO],
-    ["MIN_POLISH_LENGTH_CHECK", lib.MIN_POLISH_LENGTH_CHECK],
-  ];
-  for (const [name, expected] of pairs) {
-    const match = overlaySource.match(new RegExp(`const ${name} = ([^;]+);`));
-    assert.ok(match, `overlay.js thiếu hằng ${name}`);
-    assert.equal(Number(match[1]), expected);
-  }
+test("background owns transcript session and side panel open", async () => {
+  const [backgroundSource, manifestSource] = await Promise.all([
+    readFile(BACKGROUND_PATH, "utf8"),
+    readFile(MANIFEST_PATH, "utf8"),
+  ]);
+  const manifest = JSON.parse(manifestSource);
+
+  assert.ok(manifest.permissions.includes("sidePanel"));
+  assert.equal(manifest.side_panel?.default_path, "transcript-panel.html");
+  assert.match(backgroundSource, /OPEN_TRANSCRIPT_PANEL/);
+  assert.match(backgroundSource, /GET_FULL_TRANSCRIPT/);
+  assert.match(backgroundSource, /createTranscriptSession/);
+  assert.match(backgroundSource, /chrome\.sidePanel\.open\(\{ windowId \}\)/);
 });

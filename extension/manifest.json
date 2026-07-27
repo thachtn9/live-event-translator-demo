@@ -9,7 +9,9 @@
     "offscreen",
     "storage",
     "tabs",
-    "activeTab"
+    "activeTab",
+    "sidePanel",
+    "contextMenus"
   ],
   "host_permissions": [
     "https://generativelanguage.googleapis.com/*"
@@ -24,6 +26,9 @@
       "16": "icons/icon16.png",
       "48": "icons/icon48.png"
     }
+  },
+  "side_panel": {
+    "default_path": "transcript-panel.html"
   },
   "options_ui": {
     "page": "options.html",

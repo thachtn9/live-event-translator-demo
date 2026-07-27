@@ -13,11 +13,18 @@
     ERROR: "ERROR",
     STOPPED: "STOPPED",
     OVERLAY_PING: "OVERLAY_PING",
-    POLISH_TRANSCRIPT: "POLISH_TRANSCRIPT",
+    OPEN_TRANSCRIPT_PANEL: "OPEN_TRANSCRIPT_PANEL",
   };
+  const LEGACY_FULL_PANEL_HOST_ID = "live-event-translator-full-panel-host";
+
+  removeLegacyFullPanelHost();
 
   if (window.__liveEventTranslatorOverlayLoaded) {
-    showHost();
+    // `host` chưa tồn tại trong lượt chạy lại này, chỉ hiện lại node đã có sẵn.
+    const existingHost = document.getElementById(HOST_ID);
+    if (existingHost) {
+      existingHost.style.display = "block";
+    }
     return;
   }
   window.__liveEventTranslatorOverlayLoaded = true;
@@ -26,29 +33,9 @@
   let dragState = null;
   let resizeState = null;
 
-  let fullPanelOpen = false;
-  let polishedText = "";
-  let pendingRawText = "";
-  let fullRawText = "";
-  let polishedSentenceCount = 0;
-  let polishInFlight = false;
-  let polishFlushQueued = false;
-  let polishFailure = null;
-  let lastPolishError = "";
-  let lastForceFlushAt = 0;
-  let transcriptGeneration = 0;
-  const POLISH_BATCH_SIZE = 18;
-  const POLISH_FAILURE_COOLDOWN_MS = 30000;
-  const MIN_POLISH_LENGTH_RATIO = 0.4;
-  const MIN_POLISH_LENGTH_CHECK = 40;
-  const FORCE_FLUSH_DEBOUNCE_MS = 2000;
-  const SCROLL_STICK_SLACK = 24;
-
   const MIN_WIDTH = 280;
   const MIN_HEIGHT = 240;
   const DEFAULT_WIDTH = 380;
-  const FULL_PANEL_WIDTH = 300;
-  const FULL_PANEL_GAP = 8;
 
   const host = document.createElement("div");
   host.id = HOST_ID;
@@ -65,142 +52,128 @@
   const shadow = host.attachShadow({ mode: "open" });
   shadow.innerHTML = `
     <style>${overlayCss()}</style>
-    <div class="shell-row" id="shellRow">
-      <div class="widget" part="widget">
-        <header class="drag-handle" title="Kéo để di chuyển">
-          <div class="title-wrap">
-            <strong>Dịch sự kiện trực tiếp</strong>
-            <span class="status-chip">
-              <i class="dot" id="statusDot"></i>
-              <span id="statusText">Đã dừng</span>
-            </span>
-          </div>
-          <div class="header-actions">
-            <button type="button" class="icon-btn" id="minimizeButton" title="Thu gọn" aria-label="Thu gọn">–</button>
-            <button type="button" class="icon-btn" id="closeButton" title="Ẩn" aria-label="Ẩn">✕</button>
-          </div>
-        </header>
-
-        <div class="body" id="widgetBody">
-          <div class="actions">
-            <button type="button" id="startButton">Bắt đầu dịch</button>
-            <button type="button" class="secondary" id="stopButton" disabled>Dừng</button>
-          </div>
-
-          <div class="transcripts">
-            <div class="transcript-block">
-              <div class="row transcript-head">
-                <span class="label">Tiếng gốc</span>
-                <div
-                  class="level-track inline-meter"
-                  id="inputMeter"
-                  role="meter"
-                  aria-label="Mức âm tab"
-                  aria-valuemin="0"
-                  aria-valuemax="1"
-                  aria-valuenow="0"
-                  title="Mức âm tab"
-                >
-                  <div class="level-fill" id="inputMeterFill"></div>
-                </div>
-              </div>
-              <div class="transcript" id="originalTranscript" data-empty="Các câu gốc gần nhất sẽ hiện tại đây."></div>
-            </div>
-            <div class="transcript-block">
-              <div class="row transcript-head">
-                <span class="label">Bản dịch</span>
-                <select id="targetLanguage" aria-label="Ngôn ngữ đích" title="Ngôn ngữ đích">
-                  <option value="vi" selected>Tiếng Việt</option>
-                  <option value="en">Tiếng Anh</option>
-                  <option value="es">Tiếng Tây Ban Nha</option>
-                  <option value="pt">Tiếng Bồ Đào Nha</option>
-                  <option value="fr">Tiếng Pháp</option>
-                  <option value="ja">Tiếng Nhật</option>
-                  <option value="ru">Tiếng Nga</option>
-                  <option value="zh">Tiếng Trung</option>
-                  <option value="de">Tiếng Đức</option>
-                  <option value="ko">Tiếng Hàn</option>
-                  <option value="hi">Tiếng Hindi</option>
-                  <option value="id">Tiếng Indonesia</option>
-                  <option value="it">Tiếng Ý</option>
-                </select>
-                <button type="button" class="icon-btn full-btn" id="fullTranscriptButton" title="Bản dịch đầy đủ" aria-label="Bản dịch đầy đủ" aria-expanded="false">▤</button>
-              </div>
-              <div class="transcript" id="translatedTranscript" data-empty="Các câu dịch gần nhất sẽ hiện tại đây."></div>
-            </div>
-          </div>
-
-          <details class="settings" id="settingsPanel">
-            <summary>Cài đặt</summary>
-            <div class="settings-body">
-              <div class="field api-key-field is-editing" id="apiKeyField">
-                <div class="api-key-summary" id="apiKeySummary" hidden>
-                  <span class="api-key-ok" aria-hidden="true"></span>
-                  <span class="label" id="apiKeySummaryText">API key đã lưu</span>
-                  <button type="button" class="text-btn" id="editApiKeyButton">Sửa</button>
-                </div>
-                <div class="api-key-editor" id="apiKeyEditor">
-                  <label for="geminiApiKey">Gemini API key</label>
-                  <input
-                    id="geminiApiKey"
-                    type="password"
-                    placeholder="Dán API key…"
-                    autocomplete="off"
-                    spellcheck="false"
-                  />
-                  <div class="key-actions">
-                    <button type="button" id="saveApiKeyButton">Lưu</button>
-                    <button type="button" class="secondary" id="cancelApiKeyButton">Hủy</button>
-                    <button type="button" class="secondary" id="clearApiKeyButton">Xóa</button>
-                  </div>
-                  <p class="hint" id="apiKeyStatus"></p>
-                  <p class="hint">
-                    Lấy key tại
-                    <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">Google AI Studio</a>.
-                  </p>
-                </div>
-              </div>
-
-              <div class="field">
-                <div class="row">
-                  <label for="audioMix">Trộn âm thanh</label>
-                  <span class="value" id="mixValue">95% bản dịch</span>
-                </div>
-                <input id="audioMix" type="range" min="0" max="100" step="1" value="95" />
-                <div class="row muted">
-                  <span id="originalMixLabel">Gốc 5%</span>
-                  <span id="translatedMixLabel">Dịch 95%</span>
-                </div>
-              </div>
-
-              <div class="field">
-                <div class="row">
-                  <label for="opacityRange">Độ trong suốt</label>
-                  <span class="value" id="opacityValue">5%</span>
-                </div>
-                <input id="opacityRange" type="range" min="0" max="70" step="1" value="5" />
-              </div>
-            </div>
-          </details>
+    <div class="widget" part="widget">
+      <header class="drag-handle" title="Kéo để di chuyển">
+        <div class="title-wrap">
+          <strong>Dịch sự kiện trực tiếp</strong>
+          <span class="status-chip">
+            <i class="dot" id="statusDot"></i>
+            <span id="statusText">Đã dừng</span>
+          </span>
         </div>
-        <div class="resize-handle" id="resizeHandle" title="Kéo để đổi kích thước"></div>
-      </div>
-      <aside class="full-panel" id="fullPanel" hidden>
-        <header class="full-panel-header">
-          <strong>Bản dịch đầy đủ</strong>
-          <div class="full-panel-actions">
-            <button type="button" class="secondary compact-btn" id="saveTranscriptButton">Lưu file</button>
-            <button type="button" class="icon-btn" id="closeFullPanelButton" title="Đóng" aria-label="Đóng">✕</button>
+        <div class="header-actions">
+          <button type="button" class="icon-btn" id="minimizeButton" title="Thu gọn" aria-label="Thu gọn">–</button>
+          <button type="button" class="icon-btn" id="closeButton" title="Ẩn" aria-label="Ẩn">✕</button>
+        </div>
+      </header>
+
+      <div class="body" id="widgetBody">
+        <div class="actions">
+          <button type="button" id="startButton">Bắt đầu dịch</button>
+          <button type="button" class="secondary" id="stopButton" disabled>Dừng</button>
+        </div>
+
+        <div class="transcripts">
+          <div class="transcript-block">
+            <div class="row transcript-head">
+              <span class="label">Tiếng gốc</span>
+              <div
+                class="level-track inline-meter"
+                id="inputMeter"
+                role="meter"
+                aria-label="Mức âm tab"
+                aria-valuemin="0"
+                aria-valuemax="1"
+                aria-valuenow="0"
+                title="Mức âm tab"
+              >
+                <div class="level-fill" id="inputMeterFill"></div>
+              </div>
+            </div>
+            <div class="transcript" id="originalTranscript" data-empty="Các câu gốc gần nhất sẽ hiện tại đây."></div>
           </div>
-        </header>
-        <p class="full-panel-status" id="fullPanelStatus" role="status">Chưa có bản dịch</p>
-        <div class="full-panel-body" id="fullPanelBody" data-empty="Toàn bộ bản dịch của phiên sẽ hiện tại đây."></div>
-      </aside>
+          <div class="transcript-block">
+            <div class="row transcript-head">
+              <span class="label">Bản dịch</span>
+              <select id="targetLanguage" aria-label="Ngôn ngữ đích" title="Ngôn ngữ đích">
+                <option value="vi" selected>Tiếng Việt</option>
+                <option value="en">Tiếng Anh</option>
+                <option value="es">Tiếng Tây Ban Nha</option>
+                <option value="pt">Tiếng Bồ Đào Nha</option>
+                <option value="fr">Tiếng Pháp</option>
+                <option value="ja">Tiếng Nhật</option>
+                <option value="ru">Tiếng Nga</option>
+                <option value="zh">Tiếng Trung</option>
+                <option value="de">Tiếng Đức</option>
+                <option value="ko">Tiếng Hàn</option>
+                <option value="hi">Tiếng Hindi</option>
+                <option value="id">Tiếng Indonesia</option>
+                <option value="it">Tiếng Ý</option>
+              </select>
+              <button type="button" class="icon-btn full-btn" id="fullTranscriptButton" title="Mở bản dịch đầy đủ trong Side Panel" aria-label="Mở bản dịch đầy đủ trong Side Panel">▤</button>
+            </div>
+            <div class="transcript" id="translatedTranscript" data-empty="Các câu dịch gần nhất sẽ hiện tại đây."></div>
+          </div>
+        </div>
+
+        <details class="settings" id="settingsPanel">
+          <summary>Cài đặt</summary>
+          <div class="settings-body">
+            <div class="field api-key-field is-editing" id="apiKeyField">
+              <div class="api-key-summary" id="apiKeySummary" hidden>
+                <span class="api-key-ok" aria-hidden="true"></span>
+                <span class="label" id="apiKeySummaryText">API key đã lưu</span>
+                <button type="button" class="text-btn" id="editApiKeyButton">Sửa</button>
+              </div>
+              <div class="api-key-editor" id="apiKeyEditor">
+                <label for="geminiApiKey">Gemini API key</label>
+                <input
+                  id="geminiApiKey"
+                  type="password"
+                  placeholder="Dán API key…"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+                <div class="key-actions">
+                  <button type="button" id="saveApiKeyButton">Lưu</button>
+                  <button type="button" class="secondary" id="cancelApiKeyButton">Hủy</button>
+                  <button type="button" class="secondary" id="clearApiKeyButton">Xóa</button>
+                </div>
+                <p class="hint" id="apiKeyStatus"></p>
+                <p class="hint">
+                  Lấy key tại
+                  <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">Google AI Studio</a>.
+                </p>
+              </div>
+            </div>
+
+            <div class="field">
+              <div class="row">
+                <label for="audioMix">Trộn âm thanh</label>
+                <span class="value" id="mixValue">95% bản dịch</span>
+              </div>
+              <input id="audioMix" type="range" min="0" max="100" step="1" value="95" />
+              <div class="row muted">
+                <span id="originalMixLabel">Gốc 5%</span>
+                <span id="translatedMixLabel">Dịch 95%</span>
+              </div>
+            </div>
+
+            <div class="field">
+              <div class="row">
+                <label for="opacityRange">Độ trong suốt</label>
+                <span class="value" id="opacityValue">5%</span>
+              </div>
+              <input id="opacityRange" type="range" min="0" max="70" step="1" value="5" />
+            </div>
+          </div>
+        </details>
+      </div>
+      <div class="resize-handle" id="resizeHandle" title="Kéo để đổi kích thước"></div>
     </div>
   `;
 
   const widget = shadow.querySelector(".widget");
-  const widgetBody = shadow.querySelector("#widgetBody");
   const dragHandle = shadow.querySelector(".drag-handle");
   const statusDot = shadow.querySelector("#statusDot");
   const statusText = shadow.querySelector("#statusText");
@@ -231,13 +204,7 @@
   const apiKeyEditor = shadow.querySelector("#apiKeyEditor");
   const apiKeyField = shadow.querySelector("#apiKeyField");
   const settingsPanel = shadow.querySelector("#settingsPanel");
-  const shellRow = shadow.querySelector("#shellRow");
   const fullTranscriptButton = shadow.querySelector("#fullTranscriptButton");
-  const fullPanel = shadow.querySelector("#fullPanel");
-  const fullPanelBody = shadow.querySelector("#fullPanelBody");
-  const fullPanelStatus = shadow.querySelector("#fullPanelStatus");
-  const saveTranscriptButton = shadow.querySelector("#saveTranscriptButton");
-  const closeFullPanelButton = shadow.querySelector("#closeFullPanelButton");
   const GEMINI_API_KEY_STORAGE_KEY = "geminiApiKey";
   let hasSavedApiKey = false;
 
@@ -291,20 +258,11 @@
   });
 
   fullTranscriptButton.addEventListener("click", () => {
-    setFullPanelOpen(!fullPanelOpen);
-  });
-
-  closeFullPanelButton.addEventListener("click", () => {
-    setFullPanelOpen(false);
-  });
-
-  saveTranscriptButton.addEventListener("click", () => {
-    downloadTranscriptFile();
+    void openTranscriptPanel();
   });
 
   startButton.addEventListener("click", async () => {
     clearTranscripts();
-    resetFullTranscript();
     setControls(true);
     setStatus("Đang khởi động…", "idle");
     try {
@@ -333,8 +291,6 @@
       running = false;
       setControls(false);
       setInputLevel(0);
-      // Dừng thủ công không nhận lại STOPPED từ service worker, nên flush ở đây.
-      void maybePolishBatch(true);
     }
   });
 
@@ -467,14 +423,12 @@
         break;
       case MessageType.TRANSCRIPT_CLEAR:
         clearTranscripts();
-        resetFullTranscript();
         break;
       case MessageType.TRANSCRIPT_ORIGINAL:
         appendTranscript(originalTranscript, message.text ?? "");
         break;
       case MessageType.TRANSCRIPT:
         appendTranscript(translatedTranscript, message.text ?? "");
-        appendFullTranscript(message.text ?? "");
         break;
       case MessageType.INPUT_LEVEL:
         setInputLevel(Number(message.value) || 0);
@@ -487,7 +441,6 @@
         setControls(false);
         setInputLevel(0);
         setStatus(message.message ?? "Đã dừng", message.state ?? "idle");
-        void maybePolishBatch(true);
         break;
       default:
         break;
@@ -497,6 +450,30 @@
 
   function showHost() {
     host.style.display = "block";
+  }
+
+  function removeLegacyFullPanelHost() {
+    document.getElementById(LEGACY_FULL_PANEL_HOST_ID)?.remove();
+  }
+
+  function openTranscriptPanel() {
+    chrome.runtime.sendMessage(
+      { type: MessageType.OPEN_TRANSCRIPT_PANEL },
+      (response) => {
+        const runtimeError = chrome.runtime.lastError;
+        if (runtimeError) {
+          setStatus(runtimeError.message, "error");
+          return;
+        }
+        if (response && response.ok === false) {
+          const error = String(response.error || "Không mở được Side Panel");
+          const hint = /user gesture/i.test(error)
+            ? "Chrome chặn mở tự động — bấm chuột phải icon extension → Side panel."
+            : error;
+          setStatus(hint, "error");
+        }
+      },
+    );
   }
 
   async function restoreApiKey() {
@@ -601,15 +578,13 @@
 
   async function saveUiPrefs() {
     const rect = host.getBoundingClientRect();
-    // Lưu kích thước widget, không phải host: khi panel mở host rộng thêm ~308px.
-    const widgetRect = widget.getBoundingClientRect();
     try {
       await chrome.storage.local.set({
         overlayOpacity: Number(opacityRange.value) || 0,
         overlayLeft: Math.round(rect.left),
         overlayTop: Math.round(rect.top),
-        overlayWidth: Math.round(widgetRect.width) || Math.round(rect.width),
-        overlayHeight: Math.round(widgetRect.height) || Math.round(rect.height),
+        overlayWidth: Math.round(rect.width),
+        overlayHeight: Math.round(rect.height),
       });
     } catch {
       // ignore
@@ -617,9 +592,7 @@
   }
 
   function applySize(width, height) {
-    // Khi panel mở, host phải đủ chỗ cho cả widget lẫn panel.
-    const extra = fullPanelOpen ? FULL_PANEL_WIDTH + FULL_PANEL_GAP : 0;
-    host.style.width = `${Math.round(Math.max(width, MIN_WIDTH + extra))}px`;
+    host.style.width = `${Math.round(width)}px`;
     if (height == null) {
       host.style.height = "";
       widget.classList.remove("sized");
@@ -670,8 +643,8 @@
     opacityRange.value = String(value);
     opacityValue.textContent = `${value}%`;
     // Chỉ làm trong nền panel — chữ trong 2 khung transcript luôn đậm 100%.
-    shellRow.style.setProperty("--panel-alpha", String(1 - value / 100));
-    shellRow.style.opacity = "";
+    widget.style.setProperty("--panel-alpha", String(1 - value / 100));
+    widget.style.opacity = "";
   }
 
   function setControls(isRunning) {
@@ -721,326 +694,6 @@
     translatedTranscript.textContent = "";
   }
 
-  function resetFullTranscript() {
-    // Tăng generation để phản hồi làm sạch của phiên cũ bị bỏ qua khi quay về.
-    transcriptGeneration += 1;
-    polishedText = "";
-    pendingRawText = "";
-    fullRawText = "";
-    polishedSentenceCount = 0;
-    polishFlushQueued = false;
-    polishFailure = null;
-    lastPolishError = "";
-    lastForceFlushAt = 0;
-    // Không hạ polishInFlight ở đây: request cũ vẫn đang chạy và sẽ tự dọn khi
-    // trả về, giữ cờ bật tránh hai lượt làm sạch chồng nhau.
-    renderFullPanel();
-  }
-
-  function renderFullPanel() {
-    const display = joinDisplay(polishedText, pendingRawText);
-    const stickToBottom =
-      fullPanelBody.scrollHeight -
-        fullPanelBody.scrollTop -
-        fullPanelBody.clientHeight <
-      SCROLL_STICK_SLACK;
-    fullPanelBody.textContent = display;
-    if (stickToBottom) {
-      fullPanelBody.scrollTop = fullPanelBody.scrollHeight;
-    }
-
-    const pendingCompleted = countCompletedSentences(pendingRawText);
-    const totalCompleted = polishedSentenceCount + pendingCompleted;
-    if (polishInFlight) {
-      fullPanelStatus.textContent = "Đang làm sạch…";
-    } else if (lastPolishError) {
-      // Giữ lỗi trên panel tới khi có lượt làm sạch thành công hoặc reset.
-      fullPanelStatus.textContent = lastPolishError;
-    } else if (!display.trim()) {
-      fullPanelStatus.textContent = "Chưa có bản dịch";
-    } else if (totalCompleted > 0) {
-      fullPanelStatus.textContent = `Đã làm sạch ${polishedSentenceCount}/${totalCompleted} câu`;
-    } else if (polishedText.trim()) {
-      fullPanelStatus.textContent = "Đã làm sạch đoạn hiện có";
-    } else {
-      fullPanelStatus.textContent = "Đang chờ đủ câu để làm sạch";
-    }
-  }
-
-  function setFullPanelOpen(open) {
-    fullPanelOpen = Boolean(open);
-    // Đo bề rộng widget trước khi đổi `hidden`: sau khi panel hiện, widget đã bị co lại.
-    const measured = Math.round(widget.getBoundingClientRect().width);
-    const widgetWidth = Math.max(MIN_WIDTH, measured || DEFAULT_WIDTH);
-
-    fullPanel.hidden = !fullPanelOpen;
-    fullTranscriptButton.setAttribute(
-      "aria-expanded",
-      fullPanelOpen ? "true" : "false",
-    );
-    host.style.width = fullPanelOpen
-      ? `${widgetWidth + FULL_PANEL_WIDTH + FULL_PANEL_GAP}px`
-      : `${widgetWidth}px`;
-    host.style.maxWidth = "calc(100vw - 16px)";
-    keepHostInViewport();
-    if (fullPanelOpen) {
-      renderFullPanel();
-    }
-  }
-
-  function keepHostInViewport() {
-    if (!host.style.left) {
-      return;
-    }
-    const width = host.getBoundingClientRect().width;
-    const left = clamp(
-      Number.parseFloat(host.style.left) || 0,
-      8,
-      Math.max(8, window.innerWidth - width - 8),
-    );
-    host.style.left = `${left}px`;
-  }
-
-  function appendFullTranscript(text) {
-    if (!text) {
-      return;
-    }
-    pendingRawText += text;
-    fullRawText += text;
-    renderFullPanel();
-    void maybePolishBatch(false);
-  }
-
-  async function maybePolishBatch(forceAll) {
-    if (forceAll) {
-      // STOPPED và nút Dừng đều flush: bỏ qua lần thứ hai sát nhau.
-      const now = Date.now();
-      if (!pendingRawText.trim() || now - lastForceFlushAt < FORCE_FLUSH_DEBOUNCE_MS) {
-        return;
-      }
-      lastForceFlushAt = now;
-    } else if (
-      isPolishCooldownActive(polishFailure, {
-        now: Date.now(),
-        pendingCompleted: countCompletedSentences(pendingRawText),
-        cooldownMs: POLISH_FAILURE_COOLDOWN_MS,
-        batchSize: POLISH_BATCH_SIZE,
-      })
-    ) {
-      return;
-    }
-
-    if (polishInFlight) {
-      // Giữ lại yêu cầu làm sạch phần còn lại để chạy ngay sau lượt hiện tại.
-      polishFlushQueued = polishFlushQueued || Boolean(forceAll);
-      return;
-    }
-
-    const snapshot = pendingRawText;
-    const slice = forceAll
-      ? takeAllCompletedAndRest(snapshot)
-      : takeCompletedBatch(snapshot, POLISH_BATCH_SIZE);
-    if (!slice || !slice.batchText.trim()) {
-      if (forceAll) {
-        pendingRawText = slice?.rest ?? pendingRawText;
-        renderFullPanel();
-      }
-      return;
-    }
-
-    const generation = transcriptGeneration;
-    polishInFlight = true;
-    renderFullPanel();
-    try {
-      const response = await chrome.runtime.sendMessage({
-        type: MessageType.POLISH_TRANSCRIPT,
-        text: slice.batchText,
-      });
-      if (generation !== transcriptGeneration) {
-        // Phiên đã reset trong lúc chờ: bỏ phản hồi, không đụng vào buffer mới.
-        polishInFlight = false;
-        renderFullPanel();
-      } else {
-        if (!response?.ok) {
-          throw new Error(response?.error ?? "Làm sạch thất bại.");
-        }
-        const cleaned = String(response.text ?? "").trim();
-        if (
-          isImplausiblePolish(cleaned, slice.batchText, {
-            ratio: MIN_POLISH_LENGTH_RATIO,
-            minLength: MIN_POLISH_LENGTH_CHECK,
-          })
-        ) {
-          throw new Error("Bản làm sạch ngắn bất thường — giữ nguyên văn bản thô.");
-        }
-        polishedText +=
-          (polishedText && !polishedText.endsWith("\n") ? "\n" : "") + cleaned + "\n";
-        polishedSentenceCount += countCompletedSentences(slice.batchText);
-        // Chỉ cắt đúng phần đã gửi đi: text đến trong lúc chờ phải được giữ lại.
-        pendingRawText = pendingRawText.slice(snapshot.length - slice.rest.length);
-        polishInFlight = false;
-        polishFailure = null;
-        lastPolishError = "";
-        renderFullPanel();
-        if (!forceAll) {
-          void maybePolishBatch(false);
-        }
-      }
-    } catch (error) {
-      polishInFlight = false;
-      if (generation === transcriptGeneration) {
-        // Lỗi làm sạch không chặn phiên dịch: giữ nguyên văn bản thô đang chờ
-        // và chờ hết cooldown trước khi tự thử lại.
-        polishFailure = {
-          at: Date.now(),
-          pendingCompleted: countCompletedSentences(pendingRawText),
-        };
-        lastPolishError = error instanceof Error ? error.message : String(error);
-      }
-      renderFullPanel();
-    }
-
-    if (polishFlushQueued) {
-      polishFlushQueued = false;
-      // Flush đã xếp hàng là lượt hợp lệ, không tính vào chống trùng ở trên.
-      lastForceFlushAt = 0;
-      await maybePolishBatch(true);
-    }
-  }
-
-  function downloadTranscriptFile() {
-    // Nếu chưa có gì để hiển thị thì vẫn cứu được bản thô đã gom.
-    const display = joinDisplay(polishedText, pendingRawText).trim() || fullRawText.trim();
-    if (!display) {
-      return;
-    }
-    const blob = new Blob([`${display}\n`], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = buildSaveFilename(new Date());
-    anchor.rel = "noopener";
-    anchor.style.display = "none";
-    document.documentElement.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    // Thu hồi trễ: revoke ngay lập tức có thể hủy download đang khởi tạo.
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
-  }
-
-  // Bản sao của extension/lib/polish-text.js — overlay là classic script nên không import được.
-  const SENTENCE_END = /([.!?…。！？]+)(?:\s+|$)/g;
-
-  function countCompletedSentences(text) {
-    if (!text) return 0;
-    const re = new RegExp(SENTENCE_END.source, "g");
-    let count = 0;
-    while (re.exec(String(text)) !== null) {
-      count += 1;
-    }
-    return count;
-  }
-
-  function takeCompletedBatch(pendingText, batchSize = POLISH_BATCH_SIZE) {
-    const pending = String(pendingText ?? "");
-    if (countCompletedSentences(pending) < batchSize) {
-      return null;
-    }
-
-    let seen = 0;
-    let endIndex = -1;
-    const re = new RegExp(SENTENCE_END.source, "g");
-    let match;
-    while ((match = re.exec(pending)) !== null) {
-      seen += 1;
-      if (seen === batchSize) {
-        endIndex = match.index + match[0].length;
-        break;
-      }
-    }
-    if (endIndex < 0) {
-      return null;
-    }
-
-    return {
-      batchText: pending.slice(0, endIndex).trimEnd(),
-      rest: pending.slice(endIndex),
-    };
-  }
-
-  function takeAllCompletedAndRest(pendingText) {
-    const pending = String(pendingText ?? "");
-    if (!pending.trim()) {
-      return { batchText: "", rest: "" };
-    }
-
-    let endIndex = -1;
-    const re = new RegExp(SENTENCE_END.source, "g");
-    let match;
-    while ((match = re.exec(pending)) !== null) {
-      endIndex = match.index + match[0].length;
-    }
-
-    if (endIndex < 0) {
-      return { batchText: pending.trim(), rest: "" };
-    }
-
-    const batchText = pending.slice(0, endIndex).trimEnd();
-    const rest = pending.slice(endIndex);
-    if (!batchText && rest.trim()) {
-      return { batchText: rest.trim(), rest: "" };
-    }
-    return { batchText, rest };
-  }
-
-  function isPolishCooldownActive(failure, options = {}) {
-    if (!failure) {
-      return false;
-    }
-    const {
-      now = Date.now(),
-      pendingCompleted = 0,
-      cooldownMs = POLISH_FAILURE_COOLDOWN_MS,
-      batchSize = POLISH_BATCH_SIZE,
-    } = options;
-    if (now - Number(failure.at ?? 0) >= cooldownMs) {
-      return false;
-    }
-    if (pendingCompleted - Number(failure.pendingCompleted ?? 0) >= batchSize) {
-      return false;
-    }
-    return true;
-  }
-
-  function isImplausiblePolish(cleaned, batchText, options = {}) {
-    const {
-      ratio = MIN_POLISH_LENGTH_RATIO,
-      minLength = MIN_POLISH_LENGTH_CHECK,
-    } = options;
-    const source = String(batchText ?? "").trim();
-    const result = String(cleaned ?? "").trim();
-    if (!result) {
-      return true;
-    }
-    if (source.length <= minLength) {
-      return false;
-    }
-    return result.length < source.length * ratio;
-  }
-
-  function joinDisplay(polished, pending) {
-    return `${polished ?? ""}${pending ?? ""}`;
-  }
-
-  function buildSaveFilename(date = new Date()) {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, "0");
-    const d = String(date.getDate()).padStart(2, "0");
-    const hh = String(date.getHours()).padStart(2, "0");
-    const mm = String(date.getMinutes()).padStart(2, "0");
-    return `ban-dich-${y}${m}${d}-${hh}${mm}.txt`;
-  }
-
   function clamp(value, min, max) {
     return Math.min(max, Math.max(min, value));
   }
@@ -1049,8 +702,7 @@
     return `
       :host { all: initial; }
       * { box-sizing: border-box; }
-      .shell-row {
-        /* Token nằm ở đây để cả .widget lẫn .full-panel (anh em) cùng kế thừa. */
+      .widget {
         --panel-alpha: 1;
         --bg: 26 29 33;
         --bg-2: 21 24 28;
@@ -1064,26 +716,17 @@
         --ok: #5fad7a;
         --danger: #d46b6b;
         --radius: 8px;
-        display: flex;
-        align-items: flex-start;
-        gap: 8px;
-        max-width: 100%;
-        height: 100%;
-        min-height: 0;
-        font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-        font-size: 13px;
-        line-height: 1.45;
-        color: var(--text);
-      }
-      .widget {
-        flex: 0 1 auto;
         width: 100%;
+        max-width: 100%;
         min-width: 0;
         position: relative;
         display: flex;
         flex-direction: column;
         height: auto;
         min-height: 0;
+        font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        font-size: 13px;
+        line-height: 1.45;
         color: var(--text);
         background: rgb(var(--bg) / var(--panel-alpha));
         border: 1px solid rgb(var(--border) / var(--panel-alpha));
@@ -1092,7 +735,9 @@
         overflow: hidden;
         user-select: none;
       }
-      .widget.sized { height: 100%; }
+      .widget.sized {
+        height: 100%;
+      }
       .widget.dragging {
         box-shadow: 0 16px 44px rgb(0 0 0 / calc(0.42 * var(--panel-alpha)));
       }
@@ -1433,68 +1078,7 @@
         content: attr(data-empty);
         color: var(--faint);
       }
-      .full-panel {
-        flex: 0 0 300px;
-        width: 300px;
-        display: flex;
-        flex-direction: column;
-        min-height: 0;
-        color: var(--text);
-        background: rgb(var(--bg) / var(--panel-alpha));
-        border: 1px solid rgb(var(--border) / var(--panel-alpha));
-        border-radius: var(--radius);
-        box-shadow: 0 12px 36px rgb(0 0 0 / calc(0.32 * var(--panel-alpha)));
-        overflow: hidden;
-      }
-      .full-panel[hidden] { display: none !important; }
-      .full-panel-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 8px;
-        padding: 10px 10px 8px 12px;
-        background: rgb(var(--bg-2) / var(--panel-alpha));
-        border-bottom: 1px solid rgb(var(--border) / var(--panel-alpha));
-      }
-      .full-panel-header strong {
-        font-size: 13px;
-        font-weight: 600;
-        white-space: nowrap;
-      }
-      .full-panel-actions { display: flex; align-items: center; gap: 6px; }
-      .full-panel-status {
-        margin: 0;
-        padding: 6px 12px 0;
-        color: var(--faint);
-        font-size: 11px;
-      }
-      .full-panel-body {
-        flex: 1 1 auto;
-        min-height: 160px;
-        max-height: min(70vh, 640px);
-        overflow: auto;
-        margin: 8px 12px 12px;
-        padding: 10px;
-        border: 1px solid rgb(var(--border) / max(0.75, var(--panel-alpha)));
-        border-radius: 6px;
-        background: rgb(var(--bg-3) / max(0.88, var(--panel-alpha)));
-        white-space: pre-wrap;
-        overflow-wrap: anywhere;
-        user-select: text;
-        cursor: text;
-      }
-      .full-panel-body:empty::before {
-        content: attr(data-empty);
-        color: var(--faint);
-      }
       .full-btn { width: 28px; height: 28px; flex: 0 0 auto; }
-      .compact-btn {
-        width: auto;
-        min-width: 64px;
-        height: 28px;
-        padding: 0 10px;
-        font-size: 12px;
-      }
       .settings {
         border-top: 1px solid rgb(var(--border) / var(--panel-alpha));
         padding-top: 2px;
@@ -1527,7 +1111,7 @@
         height: 18px;
         cursor: nwse-resize;
         touch-action: none;
-        z-index: 2;
+        z-index: 4;
       }
       .resize-handle::before {
         content: "";
@@ -1544,7 +1128,9 @@
       .widget.resizing .resize-handle::before {
         border-color: var(--muted);
       }
-      .widget.collapsed .resize-handle { display: none; }
+      .widget.collapsed .resize-handle {
+        display: none;
+      }
     `;
   }
 })();

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bản dịch đầy đủ</title>
+    <link rel="stylesheet" href="transcript-panel.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="top">
+        <h1>Bản dịch đầy đủ</h1>
+        <button id="saveButton" type="button">Lưu file</button>
+      </header>
+      <label class="polish-toggle" for="polishEnabled">
+        <input id="polishEnabled" type="checkbox" checked />
+        <span>Chuẩn hóa AI</span>
+      </label>
+      <p id="status" class="status" role="status" hidden></p>
+      <div
+        id="body"
+        class="body"
+        data-empty="Toàn bộ bản dịch của phiên sẽ hiện tại đây."
+      ></div>
+    </main>
+    <script src="transcript-panel.js" type="module"></script>
+  </body>
+</html>
