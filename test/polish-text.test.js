@@ -5,6 +5,22 @@ async function importPolishText() {
   return import("../extension/lib/polish-text.js");
 }
 
+test("countCompletedSentences uses SENTENCE_END like batch splitters", async () => {
+  const { countCompletedSentences, takeCompletedBatch, takeAllCompletedAndRest } =
+    await importPolishText();
+
+  assert.equal(countCompletedSentences("A.B.C."), 1);
+  assert.equal(countCompletedSentences("A. B. C."), 3);
+
+  assert.equal(takeCompletedBatch("A.B.C.", 1)?.batchText, "A.B.C.");
+  assert.equal(takeCompletedBatch("A.B.C.", 2), null);
+
+  assert.deepEqual(takeAllCompletedAndRest("A.B.C. tail"), {
+    batchText: "A.B.C.",
+    rest: "tail",
+  });
+});
+
 test("takeCompletedBatch returns null until batch size is reached", async () => {
   const { takeCompletedBatch, POLISH_BATCH_SIZE } = await importPolishText();
   const partial = Array.from({ length: POLISH_BATCH_SIZE - 1 }, (_, i) => `Câu ${i + 1}.`).join(" ");

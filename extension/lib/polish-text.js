@@ -9,8 +9,12 @@ const SENTENCE_END = /([.!?…。！？]+)(?:\s+|$)/g;
 
 export function countCompletedSentences(text) {
   if (!text) return 0;
-  const matches = String(text).match(/[.!?…。！？]+/g);
-  return matches ? matches.length : 0;
+  const re = new RegExp(SENTENCE_END.source, "g");
+  let count = 0;
+  while (re.exec(String(text)) !== null) {
+    count += 1;
+  }
+  return count;
 }
 
 export function takeCompletedBatch(pendingRawText, batchSize = POLISH_BATCH_SIZE) {
