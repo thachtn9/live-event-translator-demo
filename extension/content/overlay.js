@@ -55,7 +55,7 @@
     <div class="widget" part="widget">
       <header class="drag-handle" title="Kéo để di chuyển">
         <div class="title-wrap">
-          <strong>Dịch sự kiện trực tiếp</strong>
+          <strong>Live Event Translator</strong>
           <span class="status-chip">
             <i class="dot" id="statusDot"></i>
             <span id="statusText">Đã dừng</span>

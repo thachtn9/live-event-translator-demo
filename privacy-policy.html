@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Privacy Policy — Live Event Translator</title>
+    <meta
+      name="description"
+      content="Privacy Policy for the Live Event Translator Chrome extension."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f3f7f8;
+        --ink: #122029;
+        --muted: #5a6b76;
+        --line: #d5e1e6;
+        --panel: #ffffff;
+        --accent: #0f8b8d;
+        --accent-soft: #e6f4f4;
+        --accent-ink: #065456;
+        --warn-bg: #fff7eb;
+        --warn-line: #e8d2a8;
+        --font-body: "IBM Plex Sans", "Segoe UI", sans-serif;
+        --font-display: "Source Serif 4", Georgia, serif;
+        --max: 42rem;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--ink);
+        font-family: var(--font-body);
+        font-size: 1rem;
+        line-height: 1.65;
+        background:
+          radial-gradient(
+            900px 420px at 12% -10%,
+            rgb(15 139 141 / 12%),
+            transparent 60%
+          ),
+          radial-gradient(
+            700px 360px at 100% 0%,
+            rgb(18 50 70 / 6%),
+            transparent 55%
+          ),
+          var(--bg);
+      }
+
+      a {
+        color: var(--accent-ink);
+        text-underline-offset: 0.15em;
+      }
+
+      a:hover {
+        color: var(--accent);
+      }
+
+      a:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 3px;
+      }
+
+      .shell {
+        width: min(100% - 2rem, 52rem);
+        margin: 0 auto;
+        padding: 2.5rem 0 4rem;
+      }
+
+      header.hero {
+        margin-bottom: 1.75rem;
+      }
+
+      .eyebrow {
+        display: inline-block;
+        margin: 0 0 0.75rem;
+        padding: 0.2rem 0.55rem;
+        border-radius: 4px;
+        background: var(--accent-soft);
+        color: var(--accent-ink);
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0 0 0.5rem;
+        font-family: var(--font-display);
+        font-size: clamp(1.85rem, 4vw, 2.45rem);
+        font-weight: 700;
+        line-height: 1.15;
+        letter-spacing: -0.02em;
+      }
+
+      .subtitle {
+        margin: 0;
+        color: var(--muted);
+        font-size: 1.05rem;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem 1.25rem;
+        margin: 1.25rem 0 0;
+        padding: 0;
+        list-style: none;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      .meta strong {
+        color: var(--ink);
+        font-weight: 600;
+      }
+
+      .callout {
+        margin: 1.5rem 0 2rem;
+        padding: 1rem 1.15rem;
+        border: 1px solid var(--line);
+        border-left: 4px solid var(--accent);
+        border-radius: 0 10px 10px 0;
+        background: var(--panel);
+        box-shadow: 0 10px 30px rgb(18 32 41 / 4%);
+      }
+
+      .callout p {
+        margin: 0;
+      }
+
+      .callout strong {
+        color: var(--accent-ink);
+      }
+
+      nav.toc {
+        margin: 0 0 2rem;
+        padding: 1rem 1.15rem;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: rgb(255 255 255 / 72%);
+      }
+
+      nav.toc h2 {
+        margin: 0 0 0.65rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      nav.toc ol {
+        margin: 0;
+        padding-left: 1.2rem;
+      }
+
+      nav.toc li {
+        margin: 0.25rem 0;
+      }
+
+      nav.toc a {
+        text-decoration: none;
+      }
+
+      nav.toc a:hover {
+        text-decoration: underline;
+      }
+
+      main {
+        display: grid;
+        gap: 1.25rem;
+      }
+
+      section {
+        padding: 1.25rem 1.35rem;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--panel);
+      }
+
+      section h2 {
+        margin: 0 0 0.75rem;
+        font-family: var(--font-display);
+        font-size: 1.25rem;
+        font-weight: 600;
+        line-height: 1.3;
+      }
+
+      section p,
+      section ul {
+        margin: 0 0 0.75rem;
+      }
+
+      section p:last-child,
+      section ul:last-child {
+        margin-bottom: 0;
+      }
+
+      section ul {
+        padding-left: 1.2rem;
+      }
+
+      section li {
+        margin: 0.35rem 0;
+      }
+
+      .lang-switch {
+        display: flex;
+        gap: 0.5rem;
+        margin: 1rem 0 0;
+      }
+
+      .lang-switch button {
+        appearance: none;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 0.35rem 0.85rem;
+        background: var(--panel);
+        color: var(--muted);
+        font: inherit;
+        font-size: 0.85rem;
+        font-weight: 500;
+        cursor: pointer;
+      }
+
+      .lang-switch button[aria-pressed="true"] {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+        color: var(--accent-ink);
+      }
+
+      .lang-switch button:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
+      [data-lang="en"] {
+        display: none;
+      }
+
+      body.show-en [data-lang="vi"] {
+        display: none;
+      }
+
+      body.show-en [data-lang="en"] {
+        display: block;
+      }
+
+      body.show-en nav.toc[data-lang="en"],
+      body.show-en .callout[data-lang="en"] {
+        display: block;
+      }
+
+      footer {
+        margin-top: 2rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header class="hero">
+        <p class="eyebrow">Privacy Policy</p>
+        <h1 data-lang="vi">Chính sách quyền riêng tư</h1>
+        <h1 data-lang="en">Privacy Policy</h1>
+        <p class="subtitle" data-lang="vi">
+          Extension Chrome <strong>Live Event Translator</strong>
+        </p>
+        <p class="subtitle" data-lang="en">
+          For the Chrome extension <strong>Live Event Translator</strong>
+        </p>
+        <ul class="meta">
+          <li><strong data-lang="vi">Cập nhật:</strong><strong data-lang="en">Last updated:</strong> 27 July 2026</li>
+          <li><strong data-lang="vi">Phiên bản:</strong><strong data-lang="en">Version:</strong> 0.1.0</li>
+        </ul>
+        <div class="lang-switch" role="group" aria-label="Language">
+          <button type="button" id="btn-vi" aria-pressed="true">Tiếng Việt</button>
+          <button type="button" id="btn-en" aria-pressed="false">English</button>
+        </div>
+      </header>
+
+      <aside class="callout" data-lang="vi">
+        <p>
+          <strong>Tóm tắt:</strong> Extension lưu API key Gemini trên máy bạn,
+          chỉ gửi âm thanh tab và nội dung bản dịch tới
+          <em>Google Generative Language API</em> khi bạn bật dịch. Chúng tôi
+          không vận hành máy chủ thu thập dữ liệu cá nhân của bạn.
+        </p>
+      </aside>
+      <aside class="callout" data-lang="en">
+        <p>
+          <strong>Summary:</strong> This extension stores your Gemini API key on
+          your device and only sends tab audio and translation text to the
+          <em>Google Generative Language API</em> when you start translation. We
+          do not operate a backend that collects your personal data.
+        </p>
+      </aside>
+
+      <nav class="toc" data-lang="vi" aria-label="Mục lục">
+        <h2>Mục lục</h2>
+        <ol>
+          <li><a href="#vi-intro">Giới thiệu</a></li>
+          <li><a href="#vi-collect">Dữ liệu chúng tôi xử lý</a></li>
+          <li><a href="#vi-use">Cách dùng dữ liệu</a></li>
+          <li><a href="#vi-share">Chia sẻ với bên thứ ba</a></li>
+          <li><a href="#vi-store">Lưu trữ &amp; bảo mật</a></li>
+          <li><a href="#vi-rights">Quyền của bạn</a></li>
+          <li><a href="#vi-children">Trẻ em</a></li>
+          <li><a href="#vi-changes">Thay đổi chính sách</a></li>
+          <li><a href="#vi-contact">Liên hệ</a></li>
+        </ol>
+      </nav>
+      <nav class="toc" data-lang="en" aria-label="Table of contents">
+        <h2>Contents</h2>
+        <ol>
+          <li><a href="#en-intro">Introduction</a></li>
+          <li><a href="#en-collect">Data we process</a></li>
+          <li><a href="#en-use">How we use data</a></li>
+          <li><a href="#en-share">Third-party sharing</a></li>
+          <li><a href="#en-store">Storage &amp; security</a></li>
+          <li><a href="#en-rights">Your choices</a></li>
+          <li><a href="#en-children">Children</a></li>
+          <li><a href="#en-changes">Policy changes</a></li>
+          <li><a href="#en-contact">Contact</a></li>
+        </ol>
+      </nav>
+
+      <main data-lang="vi">
+        <section id="vi-intro">
+          <h2>1. Giới thiệu</h2>
+          <p>
+            Extension <strong>Live Event Translator</strong> giúp dịch âm thanh
+            từ tab trình duyệt đang phát sự kiện thành giọng nói và phụ đề bằng
+            Google Gemini Live Translate.
+          </p>
+          <p>
+            Chính sách này giải thích dữ liệu nào được xử lý khi bạn dùng
+            extension, dữ liệu đó đi đâu, và cách bạn kiểm soát dữ liệu của
+            mình.
+          </p>
+        </section>
+
+        <section id="vi-collect">
+          <h2>2. Dữ liệu chúng tôi xử lý</h2>
+          <p>Extension có thể xử lý các loại dữ liệu sau:</p>
+          <ul>
+            <li>
+              <strong>Gemini API key:</strong> do bạn nhập, lưu cục bộ trong
+              <code>chrome.storage.local</code> trên trình duyệt của bạn.
+            </li>
+            <li>
+              <strong>Âm thanh tab:</strong> âm thanh từ tab bạn chọn khi bật
+              dịch, dùng để gửi tới Gemini Live Translate.
+            </li>
+            <li>
+              <strong>Bản dịch / phụ đề:</strong> văn bản và âm thanh dịch được
+              tạo ra trong phiên dịch; bạn có thể lưu file transcript trên máy.
+            </li>
+            <li>
+              <strong>Tuỳ chọn giao diện:</strong> vị trí overlay, độ trong suốt,
+              và cài đặt làm mượt transcript — lưu cục bộ trên máy bạn.
+            </li>
+          </ul>
+          <p>
+            Extension <strong>không</strong> thu thập tên, email, lịch sử duyệt
+            web tổng quát, hay dữ liệu analytics của bên thứ ba.
+          </p>
+        </section>
+
+        <section id="vi-use">
+          <h2>3. Cách dùng dữ liệu</h2>
+          <ul>
+            <li>API key dùng để tạo token phiên và gọi Gemini Live Translate / làm mượt transcript.</li>
+            <li>Âm thanh tab chỉ dùng để dịch thời gian thực khi bạn bấm bắt đầu dịch.</li>
+            <li>Tuỳ chọn giao diện chỉ dùng để nhớ cách bạn sắp xếp overlay và panel.</li>
+          </ul>
+          <p>
+            Chúng tôi không bán dữ liệu của bạn và không dùng dữ liệu để quảng cáo.
+          </p>
+        </section>
+
+        <section id="vi-share">
+          <h2>4. Chia sẻ với bên thứ ba</h2>
+          <p>
+            Khi bạn bắt đầu dịch, âm thanh tab (và khi bật tính năng làm mượt,
+            đoạn transcript) được gửi tới máy chủ của Google:
+          </p>
+          <ul>
+            <li>
+              <code>https://generativelanguage.googleapis.com/*</code>
+            </li>
+          </ul>
+          <p>
+            Việc xử lý dữ liệu tại Google tuân theo chính sách của Google /
+            Gemini API. Extension không gửi dữ liệu tới máy chủ riêng của nhà
+            phát triển extension cho mục đích dịch.
+          </p>
+          <p>
+            Bạn cần có API key từ
+            <a
+              href="https://aistudio.google.com/apikey"
+              target="_blank"
+              rel="noopener noreferrer"
+              >Google AI Studio</a
+            >.
+          </p>
+        </section>
+
+        <section id="vi-store">
+          <h2>5. Lưu trữ &amp; bảo mật</h2>
+          <ul>
+            <li>
+              API key và tuỳ chọn UI được lưu trên thiết bị của bạn qua
+              <code>chrome.storage.local</code>.
+            </li>
+            <li>
+              Extension không tải hoặc chạy mã JavaScript từ xa; mã nguồn nằm trong
+              gói extension.
+            </li>
+            <li>
+              Bạn nên bảo vệ API key như mật khẩu và có thể xoá key bất cứ lúc nào
+              trong Cài đặt / Options của extension.
+            </li>
+          </ul>
+        </section>
+
+        <section id="vi-rights">
+          <h2>6. Quyền của bạn</h2>
+          <ul>
+            <li>Không bắt đầu dịch nếu bạn không muốn gửi âm thanh tab tới Google.</li>
+            <li>Xoá API key đã lưu trong extension bất cứ lúc nào.</li>
+            <li>Gỡ cài đặt extension để xoá dữ liệu lưu cục bộ của extension.</li>
+            <li>Quản lý / thu hồi API key trên Google AI Studio.</li>
+          </ul>
+        </section>
+
+        <section id="vi-children">
+          <h2>7. Trẻ em</h2>
+          <p>
+            Extension không hướng tới trẻ em dưới 13 tuổi và không cố ý thu thập
+            thông tin cá nhân từ trẻ em.
+          </p>
+        </section>
+
+        <section id="vi-changes">
+          <h2>8. Thay đổi chính sách</h2>
+          <p>
+            Chúng tôi có thể cập nhật chính sách này khi extension thay đổi cách
+            xử lý dữ liệu. Ngày “Cập nhật” ở đầu trang sẽ được chỉnh theo phiên
+            bản mới. Việc tiếp tục sử dụng sau khi cập nhật đồng nghĩa bạn chấp
+            nhận chính sách đã sửa đổi.
+          </p>
+        </section>
+
+        <section id="vi-contact">
+          <h2>9. Liên hệ</h2>
+          <p>
+            Nếu bạn có câu hỏi về quyền riêng tư liên quan tới extension này,
+            vui lòng liên hệ nhà phát triển qua trang / kênh hỗ trợ mà bạn nhận
+            extension (ví dụ repository hoặc email hỗ trợ được công bố kèm listing
+            Chrome Web Store).
+          </p>
+        </section>
+      </main>
+
+      <main data-lang="en">
+        <section id="en-intro">
+          <h2>1. Introduction</h2>
+          <p>
+            <strong>Live Event Translator</strong> translates audio from a
+            browser tab that is playing a live event into speech and captions
+            using Google Gemini Live Translate.
+          </p>
+          <p>
+            This Privacy Policy explains what data is processed when you use the
+            extension, where that data goes, and how you can control it.
+          </p>
+        </section>
+
+        <section id="en-collect">
+          <h2>2. Data we process</h2>
+          <p>The extension may process the following:</p>
+          <ul>
+            <li>
+              <strong>Gemini API key:</strong> entered by you and stored locally
+              in <code>chrome.storage.local</code> on your browser.
+            </li>
+            <li>
+              <strong>Tab audio:</strong> audio from the tab you select when you
+              start translation, sent to Gemini Live Translate.
+            </li>
+            <li>
+              <strong>Translation / captions:</strong> translated text and speech
+              generated during a session; you may optionally save a transcript
+              file on your device.
+            </li>
+            <li>
+              <strong>UI preferences:</strong> overlay position, opacity, and
+              transcript-polish settings — stored locally on your device.
+            </li>
+          </ul>
+          <p>
+            The extension does <strong>not</strong> collect your name, email,
+            general browsing history, or third-party analytics data.
+          </p>
+        </section>
+
+        <section id="en-use">
+          <h2>3. How we use data</h2>
+          <ul>
+            <li>
+              Your API key is used to mint a short-lived session token and call
+              Gemini Live Translate / optional transcript polishing.
+            </li>
+            <li>
+              Tab audio is used only for real-time translation after you
+              explicitly start translation.
+            </li>
+            <li>
+              UI preferences are used only to remember how you arrange the
+              overlay and panel.
+            </li>
+          </ul>
+          <p>We do not sell your data and do not use it for advertising.</p>
+        </section>
+
+        <section id="en-share">
+          <h2>4. Third-party sharing</h2>
+          <p>
+            When you start translation, tab audio (and, if enabled, transcript
+            text for polishing) is sent to Google’s servers at:
+          </p>
+          <ul>
+            <li>
+              <code>https://generativelanguage.googleapis.com/*</code>
+            </li>
+          </ul>
+          <p>
+            Google’s processing of that data is governed by Google / Gemini API
+            terms and policies. The extension does not send translation data to
+            a developer-operated backend.
+          </p>
+          <p>
+            You need an API key from
+            <a
+              href="https://aistudio.google.com/apikey"
+              target="_blank"
+              rel="noopener noreferrer"
+              >Google AI Studio</a
+            >.
+          </p>
+        </section>
+
+        <section id="en-store">
+          <h2>5. Storage &amp; security</h2>
+          <ul>
+            <li>
+              Your API key and UI preferences are stored on your device via
+              <code>chrome.storage.local</code>.
+            </li>
+            <li>
+              The extension does not load or execute remote JavaScript; all
+              extension code ships in the packaged extension.
+            </li>
+            <li>
+              Treat your API key like a password. You can delete it at any time
+              in the extension Settings / Options page.
+            </li>
+          </ul>
+        </section>
+
+        <section id="en-rights">
+          <h2>6. Your choices</h2>
+          <ul>
+            <li>Do not start translation if you do not want tab audio sent to Google.</li>
+            <li>Delete the saved API key in the extension at any time.</li>
+            <li>Uninstall the extension to remove its locally stored data.</li>
+            <li>Manage or revoke your API key in Google AI Studio.</li>
+          </ul>
+        </section>
+
+        <section id="en-children">
+          <h2>7. Children</h2>
+          <p>
+            This extension is not directed at children under 13 and does not
+            knowingly collect personal information from children.
+          </p>
+        </section>
+
+        <section id="en-changes">
+          <h2>8. Policy changes</h2>
+          <p>
+            We may update this policy when the extension’s data practices change.
+            The “Last updated” date at the top of this page will reflect the
+            latest version. Continued use after an update means you accept the
+            revised policy.
+          </p>
+        </section>
+
+        <section id="en-contact">
+          <h2>9. Contact</h2>
+          <p>
+            For privacy questions about this extension, contact the developer
+            through the support channel published with the Chrome Web Store
+            listing or the project repository where you obtained the extension.
+          </p>
+        </section>
+      </main>
+
+      <footer>
+        <p data-lang="vi">
+          © 2026 Live Event Translator. Trang này mô tả thực tế xử lý dữ liệu
+          của extension Manifest V3 hiện tại.
+        </p>
+        <p data-lang="en">
+          © 2026 Live Event Translator. This page describes the current Manifest
+          V3 extension’s data practices.
+        </p>
+      </footer>
+    </div>
+
+    <script>
+      const body = document.body;
+      const btnVi = document.getElementById("btn-vi");
+      const btnEn = document.getElementById("btn-en");
+
+      function setLang(lang) {
+        const isEn = lang === "en";
+        body.classList.toggle("show-en", isEn);
+        btnVi.setAttribute("aria-pressed", String(!isEn));
+        btnEn.setAttribute("aria-pressed", String(isEn));
+        document.documentElement.lang = isEn ? "en" : "vi";
+        try {
+          localStorage.setItem("privacy-lang", lang);
+        } catch {
+          /* ignore */
+        }
+      }
+
+      btnVi.addEventListener("click", () => setLang("vi"));
+      btnEn.addEventListener("click", () => setLang("en"));
+
+      try {
+        const saved = localStorage.getItem("privacy-lang");
+        if (saved === "en" || saved === "vi") {
+          setLang(saved);
+        }
+      } catch {
+        /* ignore */
+      }
+    </script>
+  </body>
+</html>

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Dịch sự kiện trực tiếp",
+  "name": "Live Event Translator",
   "version": "0.1.0",
-  "description": "Dịch âm thanh tab đang phát sự kiện thành giọng nói và phụ đề bằng Gemini Live Translate.",
+  "description": "Real-time speech and captions for live events in your browser tab — powered by Gemini Live Translate.",
   "permissions": [
     "scripting",
     "tabCapture",
@@ -21,7 +21,7 @@
     "type": "module"
   },
   "action": {
-    "default_title": "Dịch sự kiện trực tiếp",
+    "default_title": "Live Event Translator",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png"

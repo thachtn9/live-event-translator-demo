@@ -67,7 +67,7 @@ Live Translate directly — no local token server required for the extension pat
 1. In Chrome or Edge, open `chrome://extensions` (or `edge://extensions`).
 2. Enable **Developer mode**.
 3. Click **Load unpacked** and select the `extension/` directory in this repo.
-4. Pin **Dịch sự kiện trực tiếp**.
+4. Pin **Live Event Translator**.
 5. Open a tab that is playing event audio (http/https — not a `chrome://` page).
 6. Click the extension **toolbar icon on that event tab**. A floating overlay is
    injected into the page (draggable, resizable, adjustable transparency).

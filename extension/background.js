@@ -364,7 +364,7 @@ async function startTranslation({
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
     throw new Error(
-      `${detail} Bấm icon Dịch sự kiện trực tiếp trên tab sự kiện (không dùng trang chrome://), rồi nhấn Bắt đầu dịch.`,
+      `${detail} Bấm icon Live Event Translator trên tab sự kiện (không dùng trang chrome://), rồi nhấn Bắt đầu dịch.`,
     );
   }
 
