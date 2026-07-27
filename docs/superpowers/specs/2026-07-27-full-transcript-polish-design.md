@@ -104,7 +104,7 @@ System/user instruction in Vietnamese or bilingual, roughly:
 
 1. After each `TRANSCRIPT` chunk is appended to `pendingRawText`.
 2. If completed-sentence count in `pendingRawText` ≥ 18 and not `polishInFlight` → polish that completed prefix.
-3. On **Stop**: polish any remaining pending text once (even if &lt; 18 sentences), so Save is complete.
+3. On **Stop**: polish any remaining pending text once (even if < 18 sentences), so Save is complete.
 4. On **Start**: reset all session buffers and clear panel text.
 
 ### Rate limits
