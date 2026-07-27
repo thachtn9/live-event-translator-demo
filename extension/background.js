@@ -4,6 +4,7 @@ import {
   GEMINI_API_KEY_STORAGE_KEY,
   MessageType,
 } from "./lib/messages.js";
+import { polishTranscriptText } from "./lib/polish.js";
 
 const OFFSCREEN_URL = "offscreen.html";
 const OFFSCREEN_REASONS = ["USER_MEDIA", "AUDIO_PLAYBACK"];
@@ -136,6 +137,14 @@ async function handleCommand(message, sender) {
       return setMix(message.value);
     case MessageType.GET_STATE:
       return getState();
+    case MessageType.POLISH_TRANSCRIPT: {
+      const apiKey = await getGeminiApiKey();
+      const text = await polishTranscriptText({
+        text: message.text,
+        apiKey,
+      });
+      return { text };
+    }
     default:
       throw new Error(`Unknown message type: ${message?.type ?? "undefined"}`);
   }
