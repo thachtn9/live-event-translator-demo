@@ -75,6 +75,10 @@ Live Translate directly — no local token server required for the extension pat
    (key is stored in `chrome.storage.local` on this machine only).
 8. Keep Vietnamese selected and click **Bắt đầu dịch**.
 
+- Click **▤** beside Bản dịch to open the full-transcript panel.
+- Every ~18 sentences, Gemini Flash-Lite cleans punctuation/flow (same API key).
+- Use **Lưu file** to download `ban-dich-YYYYMMDD-HHmm.txt`.
+
 The extension captures that tab via `chrome.tabCapture`, mints a short-lived
 ephemeral token from Google with your API key, then streams PCM to Gemini Live
 Translate from an offscreen document.

@@ -1,7 +1,7 @@
 # Full transcript panel + AI polish (Approach A)
 
 Date: 2026-07-27  
-Status: Draft for review  
+Status: Implemented  
 Product: Chrome extension “Dịch sự kiện trực tiếp”
 
 ## Goal
